@@ -61,7 +61,7 @@ type CopySet = {
 const COPY: Record<Locale, CopySet> = {
   en: {
     summary: {
-      publicRepos: "Public repos",
+      publicRepos: "Public repositories",
       trafficReady: "Traffic ready",
       totalStars: "Total stars",
       mostViewed: "Most viewed",
@@ -109,7 +109,7 @@ const COPY: Record<Locale, CopySet> = {
     },
     sortBy: "並び替え",
     trafficHint:
-      "この MVP は public リポジトリを読み込み、反応が出ているリポジトリを見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
+      "この MVP は公開リポジトリを読み込み、反応が出ているリポジトリを見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
     sortOptions: {
       views: "Views順",
       stars: "Stars順",
@@ -127,7 +127,7 @@ const COPY: Record<Locale, CopySet> = {
     chips: {
       updated: "更新",
       openIssues: "件のopen issue",
-      hasHomepage: "homepageあり",
+      hasHomepage: "ホームページあり",
       trafficUnavailable: "traffic未取得",
     },
     signals: {
@@ -301,7 +301,12 @@ export function RepoRadar({
 
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <Metric label={copy.metrics.views} value={repo.viewsCount} fallback="—" accent="blue" />
-                <Metric label={copy.metrics.clones} value={repo.clonesCount} fallback="—" accent="violet" />
+                <Metric
+                  label={copy.metrics.clones}
+                  value={repo.clonesCount}
+                  fallback="—"
+                  accent="violet"
+                />
                 <Metric label={copy.metrics.stars} value={repo.stargazersCount} accent="amber" />
                 <Metric label={copy.metrics.forks} value={repo.forksCount} accent="emerald" />
               </div>
@@ -382,15 +387,20 @@ function Metric({
   } as const;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-      <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={`rounded-lg px-2 py-1 text-[10px] font-semibold uppercase ${accents[accent]}`}>
-          {label.slice(0, 1)}
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-3 transition group-hover:border-white/20">
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex h-10 w-10 items-center justify-center rounded-xl ${accents[accent]}`}
+          aria-hidden="true"
+        >
+          <MetricGlyph accent={accent} />
         </span>
-        <p className="text-xl font-medium text-white">
-        {value == null ? fallback ?? "0" : new Intl.NumberFormat("en").format(value)}
-        </p>
+        <div>
+          <p className="text-[11px] font-medium text-zinc-500">{label}</p>
+          <p className="mt-0.5 text-xl font-medium text-white">
+            {value == null ? fallback ?? "0" : new Intl.NumberFormat("en").format(value)}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -398,4 +408,49 @@ function Metric({
 
 function Chip({ label }: { label: string }) {
   return <span className="rounded-full border border-white/10 px-2.5 py-1">{label}</span>;
+}
+
+function MetricGlyph({
+  accent,
+}: {
+  accent: "blue" | "violet" | "amber" | "emerald";
+}) {
+  switch (accent) {
+    case "violet":
+      return (
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+          <path d="M8 7v10" />
+          <path d="M16 7v10" />
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      );
+    case "amber":
+      return (
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+          <path d="m12 3 2.8 5.67 6.25.91-4.52 4.4 1.06 6.22L12 17.24 6.41 20.2l1.07-6.22-4.53-4.4 6.26-.91z" />
+        </svg>
+      );
+    case "emerald":
+      return (
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+          <path d="M9 5H5v4" />
+          <path d="M15 19h4v-4" />
+          <path d="M5 9 15 19" />
+          <path d="M19 15 9 5" />
+        </svg>
+      );
+    case "blue":
+    default:
+      return (
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+          <circle cx="12" cy="12" r="3.5" />
+          <path d="M2.5 12h2.7" />
+          <path d="M18.8 12h2.7" />
+          <path d="m5.3 5.3 1.9 1.9" />
+          <path d="m16.8 16.8 1.9 1.9" />
+          <path d="m18.7 5.3-1.9 1.9" />
+          <path d="m7.2 16.8-1.9 1.9" />
+        </svg>
+      );
+  }
 }
