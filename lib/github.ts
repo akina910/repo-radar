@@ -70,7 +70,7 @@ async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones
 export const getRadarRepos = cache(async (): Promise<RadarRepo[]> => {
   const username = process.env.GITHUB_USERNAME;
 
-  if (!username) {
+  if (!username || username === "your-github-username") {
     return [];
   }
 

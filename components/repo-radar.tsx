@@ -100,7 +100,7 @@ const COPY: Record<Locale, CopySet> = {
   },
   ja: {
     summary: {
-      publicRepos: "公開repo数",
+      publicRepos: "公開リポジトリ数",
       trafficReady: "Traffic取得済み",
       totalStars: "合計Stars",
       mostViewed: "最多Views",
@@ -109,7 +109,7 @@ const COPY: Record<Locale, CopySet> = {
     },
     sortBy: "並び替え",
     trafficHint:
-      "この MVP は public repo を読み込み、反応が出ている repo を見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
+      "この MVP は public リポジトリを読み込み、反応が出ているリポジトリを見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
     sortOptions: {
       views: "Views順",
       stars: "Stars順",

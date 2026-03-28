@@ -22,14 +22,14 @@ const COPY = {
   },
   ja: {
     eyebrow: "Repo Radar",
-    title: "どの repo に静かに反応が集まっているかを一目で見る。",
+    title: "どのリポジトリに静かに反応が集まっているかを一目で見る。",
     description:
-      "GitHub repo を見るための軽量ダッシュボードです。一般的な analytics ではなく、repo ごとの反応に絞ります。",
-    tracking: "追跡中",
-    noUsername: "ユーザー名未設定",
+      "GitHub リポジトリを見るための軽量ダッシュボードです。一般的な analytics ではなく、リポジトリごとの反応に絞ります。",
+    tracking: "GitHubユーザー",
+    noUsername: "未設定",
     envHint:
-      "repo を読むには GITHUB_USERNAME を入れます。views / clones を出すなら GITHUB_TOKEN も入れます。",
-    emptyTitle: "まだ repo が読み込まれていません。",
+      "リポジトリを読むには GITHUB_USERNAME を入れます。views / clones を出すなら GITHUB_TOKEN も入れます。",
+    emptyTitle: "まだリポジトリが読み込まれていません。",
     emptyDescription:
       "環境変数に GitHub ユーザー名を入れて、アプリを再起動してください。最初の版は意図的に小さくしています。",
   },
@@ -88,7 +88,9 @@ export function RepoRadarShell({
             </div>
             <div className="rounded-3xl border border-white/10 bg-black/20 px-5 py-4 text-sm text-zinc-300">
               <p className="text-zinc-500">{copy.tracking}</p>
-              <p className="mt-1 text-lg font-medium text-white">{username ?? copy.noUsername}</p>
+              <p className="mt-1 text-lg font-medium text-white">
+                {username && username !== "your-github-username" ? username : copy.noUsername}
+              </p>
             </div>
           </div>
         </section>
