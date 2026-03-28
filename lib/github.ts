@@ -68,8 +68,11 @@ async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones
   return (await response.json()) as TrafficPayload;
 }
 
-export const getRadarRepos = cache(async (): Promise<RadarRepo[]> => {
-  const rawUsername = process.env.GITHUB_USERNAME;
+export const getRadarRepos = cache(async (usernameOverride?: string): Promise<RadarRepo[]> => {
+  const rawUsername =
+    usernameOverride && usernameOverride !== "your-github-username"
+      ? usernameOverride
+      : process.env.GITHUB_USERNAME;
   const username =
     !rawUsername || rawUsername === "your-github-username"
       ? DEFAULT_GITHUB_USERNAME

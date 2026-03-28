@@ -15,6 +15,9 @@ const COPY = {
       "A lightweight dashboard for GitHub repositories. It focuses on repo-level attention, not generic analytics noise.",
     language: "Language",
     tracking: "Tracking",
+    usernameLabel: "GitHub username",
+    usernamePlaceholder: "Enter GitHub username",
+    load: "Load",
     noUsername: "No username set",
     envHint:
       "Set GITHUB_USERNAME to load repositories. Add GITHUB_TOKEN if you want views and clones from GitHub traffic endpoints.",
@@ -30,6 +33,9 @@ const COPY = {
       "GitHub リポジトリを見るための軽量ダッシュボードです。一般的な analytics ではなく、リポジトリごとの反応に絞ります。",
     language: "言語",
     tracking: "GitHubユーザー",
+    usernameLabel: "GitHubユーザー",
+    usernamePlaceholder: "GitHubユーザー名を入力",
+    load: "読み込む",
     noUsername: "未設定",
     envHint:
       "リポジトリを読むには GITHUB_USERNAME を入れます。views / clones を出すなら GITHUB_TOKEN も入れます。",
@@ -94,7 +100,7 @@ export function RepoRadarShell({
               </div>
             </div>
           </div>
-          <div className="relative mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative mt-8 space-y-8">
             <div className="max-w-3xl space-y-4">
               <h1 className="max-w-4xl text-3xl font-medium tracking-tight text-white md:text-5xl">
                 {copy.title}
@@ -103,11 +109,36 @@ export function RepoRadarShell({
                 {copy.description}
               </p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-black/25 px-5 py-4 text-sm text-zinc-300 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-              <p className="text-zinc-500">{copy.tracking}</p>
-              <p className="mt-1 text-lg font-medium text-white">
-                {username && username !== "your-github-username" ? username : copy.noUsername}
-              </p>
+            <form action="/" method="get" className="max-w-xl">
+              <label className="mb-2 block text-sm font-medium text-zinc-300">{copy.usernameLabel}</label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                    <SearchIcon />
+                  </span>
+                  <input
+                    type="text"
+                    name="username"
+                    defaultValue={username ?? ""}
+                    placeholder={copy.usernamePlaceholder}
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 pl-10 pr-4 text-sm text-white outline-none backdrop-blur-sm transition placeholder:text-zinc-500 focus:border-white/30"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="h-12 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 px-6 text-sm font-medium text-white transition hover:from-blue-600 hover:to-violet-600"
+                >
+                  {copy.load}
+                </button>
+              </div>
+            </form>
+            <div className="inline-flex w-fit rounded-3xl border border-white/10 bg-black/25 px-5 py-4 text-sm text-zinc-300 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+              <div>
+                <p className="text-zinc-500">{copy.tracking}</p>
+                <p className="mt-1 text-lg font-medium text-white">
+                  {username && username !== "your-github-username" ? username : copy.noUsername}
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -128,5 +159,14 @@ export function RepoRadarShell({
         </div>
       </div>
     </main>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[2]">
+      <circle cx="11" cy="11" r="6" />
+      <path d="m20 20-4.2-4.2" />
+    </svg>
   );
 }

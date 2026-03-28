@@ -267,7 +267,7 @@ export function RepoRadar({
         <p className="max-w-xl text-sm leading-6 text-zinc-400">{copy.trafficHint}</p>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-2">
+      <section className="grid gap-6">
         {sortedRepos.map((repo) => {
           const signal = getSignal(repo, locale);
 
