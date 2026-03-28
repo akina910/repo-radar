@@ -25,7 +25,6 @@ type TrafficPayload = {
 };
 
 const API_BASE = "https://api.github.com";
-const DEFAULT_GITHUB_USERNAME = "akina910";
 
 function getHeaders() {
   const token = process.env.GITHUB_TOKEN;
@@ -74,9 +73,7 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
       ? usernameOverride
       : process.env.GITHUB_USERNAME;
   const username =
-    !rawUsername || rawUsername === "your-github-username"
-      ? DEFAULT_GITHUB_USERNAME
-      : rawUsername;
+    !rawUsername || rawUsername === "your-github-username" ? null : rawUsername;
 
   if (!username) {
     return [];

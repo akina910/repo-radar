@@ -35,6 +35,7 @@ GITHUB_TOKEN=your-github-token
 ```
 
 ## Notes
+- `GITHUB_USERNAME` is required unless you pass `?username=...` in the URL
 - `GITHUB_TOKEN` is optional for basic repo metadata
 - views / clones depend on GitHub traffic endpoints and may be unavailable without a token
 - this MVP only looks at public repositories owned by one account
