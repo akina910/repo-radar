@@ -2,6 +2,8 @@
 
 A small dashboard for tracking how your public GitHub repositories are doing.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fakina910%2Frepo-radar&project-name=repo-radar&env=GITHUB_USERNAME,GITHUB_TOKEN)
+
 ## What it does
 - loads your public GitHub repositories
 - shows stars, forks, open issues, last update time
@@ -39,3 +41,4 @@ GITHUB_TOKEN=your-github-token
 - `GITHUB_TOKEN` is optional for basic repo metadata
 - views / clones depend on GitHub traffic endpoints and may be unavailable without a token
 - this MVP only looks at public repositories owned by one account
+- for one-click setup on Vercel, fill in the same two variables during the Deploy Button flow
