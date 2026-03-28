@@ -25,6 +25,7 @@ type TrafficPayload = {
 };
 
 const API_BASE = "https://api.github.com";
+const DEFAULT_GITHUB_USERNAME = "akina910";
 
 function getHeaders() {
   const token = process.env.GITHUB_TOKEN;
@@ -68,9 +69,13 @@ async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones
 }
 
 export const getRadarRepos = cache(async (): Promise<RadarRepo[]> => {
-  const username = process.env.GITHUB_USERNAME;
+  const rawUsername = process.env.GITHUB_USERNAME;
+  const username =
+    !rawUsername || rawUsername === "your-github-username"
+      ? DEFAULT_GITHUB_USERNAME
+      : rawUsername;
 
-  if (!username || username === "your-github-username") {
+  if (!username) {
     return [];
   }
 
