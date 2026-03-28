@@ -209,7 +209,7 @@ export function RepoRadar({
         />
       </section>
 
-      <section className="mb-8 rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+      <section className="mb-8 rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm dark:border-white/10 dark:bg-white/6">
         <div className="mb-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <span className="font-semibold">{copy.sortBy}</span>
@@ -217,7 +217,7 @@ export function RepoRadar({
               <select
                 value={sortBy}
                 onChange={(event) => setSortBy(event.target.value as SortKey)}
-                className="h-10 min-w-[180px] appearance-none rounded-md border border-border bg-background/50 px-3 pr-9 text-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+                className="h-10 min-w-[180px] appearance-none rounded-md border border-border bg-background/50 px-3 pr-9 text-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 dark:border-white/10 dark:bg-white/6"
               >
                 <option value="views">{copy.views}</option>
                 <option value="stars">{copy.stars}</option>
@@ -270,7 +270,7 @@ function SummaryCard({
   return (
     <div className="transition duration-200 hover:-translate-y-1">
       <div
-        className={`relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br ${gradients[index % 4]} p-6 backdrop-blur-sm`}
+        className={`relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br ${gradients[index % 4]} p-6 backdrop-blur-sm dark:border-white/10 dark:from-white/8 dark:to-white/[0.03]`}
       >
         <div
           className={`absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br ${iconColors[index % 4]} opacity-5 transition duration-500 hover:scale-150`}
@@ -302,8 +302,8 @@ function RepoCard({
   const relativeDate = formatRelativeDate(repo.updatedAt, locale);
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-7 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5">
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+    <article className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-7 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 dark:border-white/10 dark:bg-white/6 dark:hover:shadow-[0_28px_90px_rgba(0,0,0,0.45)]">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-blue-500/12 dark:to-purple-500/12" />
 
       <div className="relative">
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -322,14 +322,14 @@ function RepoCard({
             href={repo.htmlUrl}
             target="_blank"
             rel="noreferrer"
-            className="ml-3 rounded-md p-2 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent"
+            className="ml-3 rounded-md p-2 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent dark:hover:bg-white/10"
             aria-label={copy.open}
           >
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-6 rounded-lg bg-muted/30 p-4 sm:grid-cols-4">
+        <div className="mb-5 grid grid-cols-2 gap-6 rounded-lg bg-muted/30 p-4 dark:bg-white/6 sm:grid-cols-4">
           <MetricBlock icon={<Eye className="h-5 w-5" />} tone="blue" label={copy.views} value={repo.trafficAvailable ? repo.viewsCount : null} />
           <MetricBlock icon={<GitBranch className="h-5 w-5" />} tone="purple" label={copy.clones} value={repo.trafficAvailable ? repo.clonesCount : null} />
           <MetricBlock icon={<Star className="h-5 w-5" />} tone="yellow" label={copy.stars} value={repo.stargazersCount} />

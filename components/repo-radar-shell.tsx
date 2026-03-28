@@ -68,8 +68,8 @@ export function RepoRadarShell({
   }, [theme]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.05),_transparent_45%),radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.05),_transparent_40%)]" />
+    <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground dark:from-[#090b13] dark:via-[#0d1220] dark:to-[#171b2d]">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.05),_transparent_45%),radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.05),_transparent_40%)] dark:bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.16),_transparent_42%),radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.14),_transparent_38%)]" />
 
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <section className="mb-16">
@@ -86,7 +86,7 @@ export function RepoRadarShell({
               </h1>
             </div>
 
-            <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 p-1.5 backdrop-blur-sm">
+            <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 p-1.5 backdrop-blur-sm dark:border-white/10 dark:bg-white/6">
               <span className="px-2 text-sm text-muted-foreground">{copy.language}</span>
               <div className="flex gap-1">
                 {(["en", "ja"] as const).map((value) => {
@@ -111,7 +111,7 @@ export function RepoRadarShell({
           </div>
 
           <div className="mb-6 flex items-center justify-end">
-            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/50 p-1.5 backdrop-blur-sm">
+            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/50 p-1.5 backdrop-blur-sm dark:border-white/10 dark:bg-white/6">
               <span className="px-2 text-sm text-muted-foreground">{copy.theme}</span>
               <div className="flex gap-1">
                 <button
@@ -161,13 +161,13 @@ export function RepoRadarShell({
                   name="username"
                   defaultValue={username ?? ""}
                   placeholder={copy.usernamePlaceholder}
-                  className="h-12 w-full rounded-md border border-border/50 bg-card/50 pl-10 pr-3 text-sm backdrop-blur-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+                  className="h-12 w-full rounded-md border border-border/50 bg-card/50 pl-10 pr-3 text-sm backdrop-blur-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 dark:border-white/10 dark:bg-white/6"
                 />
               </div>
             </div>
             <button
               type="submit"
-              className="h-12 rounded-md bg-gradient-to-r from-blue-500 to-purple-500 px-8 text-sm font-medium text-white transition hover:from-blue-600 hover:to-purple-600"
+              className="h-12 rounded-md bg-gradient-to-r from-blue-500 to-purple-500 px-8 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-purple-600 dark:shadow-[0_14px_36px_rgba(76,99,255,0.28)]"
             >
               {copy.load}
             </button>

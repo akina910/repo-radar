@@ -21,18 +21,18 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: #11131b;
   --card-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: #1d2231;
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: #1a1f2d;
+  --muted-foreground: #9ca3b7;
+  --accent: #202636;
   --accent-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input-background: oklch(0.24 0 0);
+  --border: rgba(255, 255, 255, 0.08);
+  --input-background: rgba(255, 255, 255, 0.04);
   --ring: oklch(0.439 0 0);
 }
 
