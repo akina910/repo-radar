@@ -47,10 +47,17 @@ export function RepoRadarShell({
 
   return (
     <main className="min-h-screen bg-[#060816] px-6 py-10 text-zinc-100 md:px-10">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.08),_transparent_40%),radial-gradient(ellipse_at_bottom_left,_rgba(168,85,247,0.08),_transparent_36%)]" />
       <div className="mx-auto max-w-7xl">
-        <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(74,222,128,0.16),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.18),_transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-8 shadow-2xl shadow-black/20">
+        <section className="relative rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(74,222,128,0.16),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.18),_transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-8 shadow-2xl shadow-black/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 opacity-30 blur-xl" />
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-xl font-semibold text-white">
+                  RR
+                </div>
+              </div>
               <p className="text-sm uppercase tracking-[0.3em] text-zinc-400">{copy.eyebrow}</p>
             </div>
             <div className="flex items-center gap-3 self-start rounded-full border border-white/10 bg-black/20 px-3 py-2">
@@ -79,14 +86,14 @@ export function RepoRadarShell({
           </div>
           <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-4">
-              <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl">
+              <h1 className="bg-gradient-to-r from-white via-blue-100 to-violet-200 bg-clip-text text-4xl font-semibold tracking-tight text-transparent md:text-6xl">
                 {copy.title}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-zinc-300 md:text-lg">
                 {copy.description}
               </p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-black/20 px-5 py-4 text-sm text-zinc-300">
+            <div className="rounded-3xl border border-white/10 bg-black/20 px-5 py-4 text-sm text-zinc-300 shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
               <p className="text-zinc-500">{copy.tracking}</p>
               <p className="mt-1 text-lg font-medium text-white">
                 {username && username !== "your-github-username" ? username : copy.noUsername}
