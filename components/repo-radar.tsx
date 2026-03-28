@@ -22,19 +22,129 @@ export type RadarRepo = {
 
 type SortKey = "views" | "stars" | "updated" | "clones";
 
-const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
-  { key: "views", label: "Views" },
-  { key: "stars", label: "Stars" },
-  { key: "updated", label: "Updated" },
-  { key: "clones", label: "Clones" },
-];
+type Locale = "en" | "ja";
 
-function formatRelativeDate(value: string) {
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+type CopySet = {
+  summary: {
+    publicRepos: string;
+    trafficReady: string;
+    totalStars: string;
+    mostViewed: string;
+    viewsAndClones: string;
+    noTraffic: string;
+  };
+  sortBy: string;
+  trafficHint: string;
+  sortOptions: Record<SortKey, string>;
+  open: string;
+  noDescription: string;
+  metrics: {
+    views: string;
+    clones: string;
+    stars: string;
+    forks: string;
+  };
+  chips: {
+    updated: string;
+    openIssues: string;
+    hasHomepage: string;
+    trafficUnavailable: string;
+  };
+  signals: {
+    active: string;
+    cold: string;
+    fresh: string;
+  };
+  today: string;
+};
+
+const COPY: Record<Locale, CopySet> = {
+  en: {
+    summary: {
+      publicRepos: "Public repos",
+      trafficReady: "Traffic ready",
+      totalStars: "Total stars",
+      mostViewed: "Most viewed",
+      viewsAndClones: "views / clones",
+      noTraffic: "No traffic",
+    },
+    sortBy: "Sort by",
+    trafficHint:
+      "This MVP reads your public repositories and surfaces the repos that are getting attention. Traffic numbers depend on a GitHub token with access to traffic metrics.",
+    sortOptions: {
+      views: "Views",
+      stars: "Stars",
+      updated: "Updated",
+      clones: "Clones",
+    },
+    open: "Open",
+    noDescription: "No description yet.",
+    metrics: {
+      views: "Views",
+      clones: "Clones",
+      stars: "Stars",
+      forks: "Forks",
+    },
+    chips: {
+      updated: "Updated",
+      openIssues: "open issues",
+      hasHomepage: "Has homepage",
+      trafficUnavailable: "Traffic unavailable",
+    },
+    signals: {
+      active: "Active",
+      cold: "Cold",
+      fresh: "Fresh",
+    },
+    today: "today",
+  },
+  ja: {
+    summary: {
+      publicRepos: "公開repo数",
+      trafficReady: "Traffic取得済み",
+      totalStars: "合計Stars",
+      mostViewed: "最多Views",
+      viewsAndClones: "views / clones",
+      noTraffic: "trafficなし",
+    },
+    sortBy: "並び替え",
+    trafficHint:
+      "この MVP は public repo を読み込み、反応が出ている repo を見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
+    sortOptions: {
+      views: "Views順",
+      stars: "Stars順",
+      updated: "更新順",
+      clones: "Clones順",
+    },
+    open: "開く",
+    noDescription: "説明はまだありません。",
+    metrics: {
+      views: "Views",
+      clones: "Clones",
+      stars: "Stars",
+      forks: "Forks",
+    },
+    chips: {
+      updated: "更新",
+      openIssues: "件のopen issue",
+      hasHomepage: "homepageあり",
+      trafficUnavailable: "traffic未取得",
+    },
+    signals: {
+      active: "反応あり",
+      cold: "放置気味",
+      fresh: "新しめ",
+    },
+    today: "今日",
+  },
+};
+
+function formatRelativeDate(value: string, locale: Locale) {
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const diffMs = new Date(value).getTime() - Date.now();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
-  if (Math.abs(diffDays) < 1) return "today";
+  if (Math.abs(diffDays) < 1) return COPY[locale].today;
   if (Math.abs(diffDays) < 30) return formatter.format(diffDays, "day");
 
   const diffMonths = Math.round(diffDays / 30);
@@ -44,9 +154,9 @@ function formatRelativeDate(value: string) {
   return formatter.format(diffYears, "year");
 }
 
-function getSignal(repo: RadarRepo) {
+function getSignal(repo: RadarRepo, locale: Locale) {
   if ((repo.viewsCount ?? 0) >= 20 || repo.stargazersCount >= 3) {
-    return { label: "Active", tone: "emerald" };
+    return { label: COPY[locale].signals.active, tone: "emerald" };
   }
 
   const updatedDays = Math.abs(
@@ -54,10 +164,10 @@ function getSignal(repo: RadarRepo) {
   );
 
   if (updatedDays > 30) {
-    return { label: "Cold", tone: "amber" };
+    return { label: COPY[locale].signals.cold, tone: "amber" };
   }
 
-  return { label: "Fresh", tone: "sky" };
+  return { label: COPY[locale].signals.fresh, tone: "sky" };
 }
 
 function toneClass(tone: string) {
@@ -71,8 +181,15 @@ function toneClass(tone: string) {
   }
 }
 
-export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
+export function RepoRadar({
+  repos,
+  locale,
+}: {
+  repos: RadarRepo[];
+  locale: Locale;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("views");
+  const copy = COPY[locale];
 
   const sortedRepos = useMemo(() => {
     const cloned = [...repos];
@@ -99,22 +216,22 @@ export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 md:grid-cols-4">
-        <SummaryCard label="Public repos" value={String(repos.length)} />
+        <SummaryCard label={copy.summary.publicRepos} value={String(repos.length)} />
         <SummaryCard
-          label="Traffic ready"
+          label={copy.summary.trafficReady}
           value={`${reposWithTraffic}/${repos.length}`}
-          helper="views / clones"
+          helper={copy.summary.viewsAndClones}
         />
         <SummaryCard
-          label="Total stars"
+          label={copy.summary.totalStars}
           value={String(repos.reduce((sum, repo) => sum + repo.stargazersCount, 0))}
         />
         <SummaryCard
-          label="Most viewed"
+          label={copy.summary.mostViewed}
           value={
             sortedRepos[0]?.viewsCount != null
               ? `${sortedRepos[0].viewsCount}`
-              : "No traffic"
+              : copy.summary.noTraffic
           }
           helper={sortedRepos[0]?.name ?? "—"}
         />
@@ -122,9 +239,10 @@ export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
 
       <section className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm text-zinc-400">Sort by</p>
+          <p className="text-sm text-zinc-400">{copy.sortBy}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {SORT_OPTIONS.map((option) => {
+            {(["views", "stars", "updated", "clones"] as SortKey[]).map((key) => {
+              const option = { key, label: copy.sortOptions[key] };
               const active = option.key === sortKey;
               return (
                 <button
@@ -143,15 +261,12 @@ export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
             })}
           </div>
         </div>
-        <p className="max-w-xl text-sm leading-6 text-zinc-400">
-          This MVP reads your public repositories and surfaces the repos that are getting
-          attention. Traffic numbers depend on a GitHub token with access to traffic metrics.
-        </p>
+        <p className="max-w-xl text-sm leading-6 text-zinc-400">{copy.trafficHint}</p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         {sortedRepos.map((repo) => {
-          const signal = getSignal(repo);
+          const signal = getSignal(repo, locale);
 
           return (
             <article
@@ -168,7 +283,7 @@ export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
                       {signal.label}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-400">{repo.description ?? "No description yet."}</p>
+                  <p className="text-sm text-zinc-400">{repo.description ?? copy.noDescription}</p>
                 </div>
                 <a
                   href={repo.htmlUrl}
@@ -176,23 +291,23 @@ export function RepoRadar({ repos }: { repos: RadarRepo[] }) {
                   rel="noreferrer"
                   className="rounded-full border border-white/10 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-white/30"
                 >
-                  Open
+                  {copy.open}
                 </a>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Metric label="Views" value={repo.viewsCount} fallback="—" />
-                <Metric label="Clones" value={repo.clonesCount} fallback="—" />
-                <Metric label="Stars" value={repo.stargazersCount} />
-                <Metric label="Forks" value={repo.forksCount} />
+                <Metric label={copy.metrics.views} value={repo.viewsCount} fallback="—" />
+                <Metric label={copy.metrics.clones} value={repo.clonesCount} fallback="—" />
+                <Metric label={copy.metrics.stars} value={repo.stargazersCount} />
+                <Metric label={copy.metrics.forks} value={repo.forksCount} />
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2 text-xs text-zinc-400">
-                <Chip label={`Updated ${formatRelativeDate(repo.pushedAt)}`} />
-                <Chip label={`${repo.openIssuesCount} open issues`} />
+                <Chip label={`${copy.chips.updated} ${formatRelativeDate(repo.pushedAt, locale)}`} />
+                <Chip label={`${repo.openIssuesCount} ${copy.chips.openIssues}`} />
                 {repo.language ? <Chip label={repo.language} /> : null}
-                {repo.homepage ? <Chip label="Has homepage" /> : null}
-                {!repo.trafficAvailable ? <Chip label="Traffic unavailable" /> : null}
+                {repo.homepage ? <Chip label={copy.chips.hasHomepage} /> : null}
+                {!repo.trafficAvailable ? <Chip label={copy.chips.trafficUnavailable} /> : null}
               </div>
             </article>
           );
