@@ -1,6 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  ExternalLink,
+  Eye,
+  GitBranch,
+  GitFork,
+  Star,
+} from "lucide-react";
 
 export type RadarRepo = {
   id: number;
@@ -21,142 +29,120 @@ export type RadarRepo = {
 };
 
 type SortKey = "views" | "stars" | "updated" | "clones";
-
 type Locale = "en" | "ja";
 
 type CopySet = {
-  summary: {
-    publicRepos: string;
-    trafficReady: string;
-    totalStars: string;
-    mostViewed: string;
-    viewsAndClones: string;
-    noTraffic: string;
-  };
+  publicRepos: string;
+  trafficReady: string;
+  totalStars: string;
+  mostViewed: string;
   sortBy: string;
-  trafficHint: string;
-  sortOptions: Record<SortKey, string>;
+  views: string;
+  clones: string;
+  stars: string;
+  updated: string;
+  forks: string;
+  updatedLabel: string;
+  openIssues: string;
+  hasHomepage: string;
+  trafficUnavailable: string;
   open: string;
+  mvpNote: string;
   noDescription: string;
-  metrics: {
-    views: string;
-    clones: string;
-    stars: string;
-    forks: string;
-  };
-  chips: {
-    updated: string;
-    openIssues: string;
-    hasHomepage: string;
-    trafficUnavailable: string;
-  };
+  noTraffic: string;
   signals: {
     active: string;
     cold: string;
     fresh: string;
   };
-  today: string;
 };
 
 const COPY: Record<Locale, CopySet> = {
   en: {
-    summary: {
-      publicRepos: "Public repositories",
-      trafficReady: "Traffic ready",
-      totalStars: "Total stars",
-      mostViewed: "Most viewed",
-      viewsAndClones: "views / clones",
-      noTraffic: "No traffic",
-    },
+    publicRepos: "Public repositories",
+    trafficReady: "Traffic ready",
+    totalStars: "Total stars",
+    mostViewed: "Most viewed",
     sortBy: "Sort by",
-    trafficHint:
-      "This MVP reads your public repositories and surfaces the repos that are getting attention. Traffic numbers depend on a GitHub token with access to traffic metrics.",
-    sortOptions: {
-      views: "Views",
-      stars: "Stars",
-      updated: "Updated",
-      clones: "Clones",
-    },
+    views: "Views",
+    clones: "Clones",
+    stars: "Stars",
+    updated: "Updated",
+    forks: "Forks",
+    updatedLabel: "Updated",
+    openIssues: "open issues",
+    hasHomepage: "Has homepage",
+    trafficUnavailable: "Traffic unavailable",
     open: "Open",
-    noDescription: "No description yet.",
-    metrics: {
-      views: "Views",
-      clones: "Clones",
-      stars: "Stars",
-      forks: "Forks",
-    },
-    chips: {
-      updated: "Updated",
-      openIssues: "open issues",
-      hasHomepage: "Has homepage",
-      trafficUnavailable: "Traffic unavailable",
-    },
+    mvpNote:
+      "This MVP reads your public repositories and surfaces the repos that are getting attention. Traffic numbers depend on a GitHub token with access to traffic metrics.",
+    noDescription: "No description available",
+    noTraffic: "—",
     signals: {
       active: "Active",
       cold: "Cold",
       fresh: "Fresh",
     },
-    today: "today",
   },
   ja: {
-    summary: {
-      publicRepos: "公開リポジトリ数",
-      trafficReady: "Traffic取得済み",
-      totalStars: "合計Stars",
-      mostViewed: "最多Views",
-      viewsAndClones: "views / clones",
-      noTraffic: "trafficなし",
-    },
+    publicRepos: "公開リポジトリ数",
+    trafficReady: "Traffic取得済み",
+    totalStars: "合計Stars",
+    mostViewed: "最多Views",
     sortBy: "並び替え",
-    trafficHint:
-      "この MVP は公開リポジトリを読み込み、反応が出ているリポジトリを見つけやすくします。views / clones は traffic API を読める GitHub token がある時だけ出ます。",
-    sortOptions: {
-      views: "Views順",
-      stars: "Stars順",
-      updated: "更新順",
-      clones: "Clones順",
-    },
+    views: "Views",
+    clones: "Clones",
+    stars: "Stars",
+    updated: "更新順",
+    forks: "Forks",
+    updatedLabel: "更新",
+    openIssues: "未解決の問題",
+    hasHomepage: "ホームページあり",
+    trafficUnavailable: "Traffic取得不可",
     open: "開く",
+    mvpNote:
+      "この MVP は公開リポジトリを読み込み、注目を集めているリポジトリを表示します。Traffic 数値は GitHub トークンとアクセス権限に依存します。",
     noDescription: "説明はまだありません。",
-    metrics: {
-      views: "Views",
-      clones: "Clones",
-      stars: "Stars",
-      forks: "Forks",
-    },
-    chips: {
-      updated: "更新",
-      openIssues: "件のopen issue",
-      hasHomepage: "ホームページあり",
-      trafficUnavailable: "traffic未取得",
-    },
+    noTraffic: "—",
     signals: {
       active: "反応あり",
       cold: "放置気味",
       fresh: "新しめ",
     },
-    today: "今日",
   },
 };
 
-function formatRelativeDate(value: string, locale: Locale) {
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const diffMs = new Date(value).getTime() - Date.now();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+function formatRelativeDate(dateString: string, locale: Locale): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (Math.abs(diffDays) < 1) return COPY[locale].today;
-  if (Math.abs(diffDays) < 30) return formatter.format(diffDays, "day");
+  if (locale === "ja") {
+    if (diffDays === 0) return "今日";
+    if (diffDays === 1) return "昨日";
+    if (diffDays < 7) return `${diffDays}日前`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}週間前`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}ヶ月前`;
+    return `${Math.floor(diffDays / 365)}年前`;
+  }
 
-  const diffMonths = Math.round(diffDays / 30);
-  if (Math.abs(diffMonths) < 12) return formatter.format(diffMonths, "month");
-
-  const diffYears = Math.round(diffMonths / 12);
-  return formatter.format(diffYears, "year");
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
 }
 
 function getSignal(repo: RadarRepo, locale: Locale) {
+  const copy = COPY[locale];
+
   if ((repo.viewsCount ?? 0) >= 20 || repo.stargazersCount >= 3) {
-    return { label: COPY[locale].signals.active, tone: "emerald" };
+    return {
+      label: copy.signals.active,
+      className: "border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400",
+    };
   }
 
   const updatedDays = Math.abs(
@@ -164,21 +150,16 @@ function getSignal(repo: RadarRepo, locale: Locale) {
   );
 
   if (updatedDays > 30) {
-    return { label: COPY[locale].signals.cold, tone: "amber" };
+    return {
+      label: copy.signals.cold,
+      className: "border-gray-500/20 bg-gray-500/10 text-gray-700 dark:text-gray-400",
+    };
   }
 
-  return { label: COPY[locale].signals.fresh, tone: "sky" };
-}
-
-function toneClass(tone: string) {
-  switch (tone) {
-    case "emerald":
-      return "border-emerald-400/40 bg-emerald-400/10 text-emerald-200";
-    case "amber":
-      return "border-amber-400/40 bg-amber-400/10 text-amber-100";
-    default:
-      return "border-sky-400/40 bg-sky-400/10 text-sky-100";
-  }
+  return {
+    label: copy.signals.fresh,
+    className: "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  };
 }
 
 export function RepoRadar({
@@ -188,269 +169,245 @@ export function RepoRadar({
   repos: RadarRepo[];
   locale: Locale;
 }) {
-  const [sortKey, setSortKey] = useState<SortKey>("views");
   const copy = COPY[locale];
+  const [sortBy, setSortBy] = useState<SortKey>("views");
 
   const sortedRepos = useMemo(() => {
-    const cloned = [...repos];
-
-    cloned.sort((left, right) => {
-      switch (sortKey) {
+    return [...repos].sort((left, right) => {
+      switch (sortBy) {
         case "stars":
           return right.stargazersCount - left.stargazersCount;
+        case "clones":
+          return (right.clonesCount ?? 0) - (left.clonesCount ?? 0);
         case "updated":
           return new Date(right.pushedAt).getTime() - new Date(left.pushedAt).getTime();
-        case "clones":
-          return (right.clonesCount ?? -1) - (left.clonesCount ?? -1);
         case "views":
         default:
-          return (right.viewsCount ?? -1) - (left.viewsCount ?? -1);
+          return (right.viewsCount ?? 0) - (left.viewsCount ?? 0);
       }
     });
+  }, [repos, sortBy]);
 
-    return cloned;
-  }, [repos, sortKey]);
-
-  const reposWithTraffic = repos.filter((repo) => repo.trafficAvailable).length;
+  const totalStars = repos.reduce((sum, repo) => sum + repo.stargazersCount, 0);
+  const trafficReadyCount = repos.filter((repo) => repo.trafficAvailable).length;
+  const mostViewedRepo = repos.reduce<RadarRepo | null>((max, repo) => {
+    if (!max) return repo;
+    return (repo.viewsCount ?? 0) > (max.viewsCount ?? 0) ? repo : max;
+  }, repos[0] ?? null);
 
   return (
-    <div className="space-y-8">
-      <section className="grid gap-4 md:grid-cols-4">
-        <SummaryCard index={0} label={copy.summary.publicRepos} value={String(repos.length)} />
+    <>
+      <section className="mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label={copy.publicRepos} value={repos.length} index={0} />
+        <SummaryCard label={copy.trafficReady} value={`${trafficReadyCount}/${repos.length}`} index={1} />
+        <SummaryCard label={copy.totalStars} value={totalStars} index={2} />
         <SummaryCard
-          index={1}
-          label={copy.summary.trafficReady}
-          value={`${reposWithTraffic}/${repos.length}`}
-          helper={copy.summary.viewsAndClones}
-        />
-        <SummaryCard
-          index={2}
-          label={copy.summary.totalStars}
-          value={String(repos.reduce((sum, repo) => sum + repo.stargazersCount, 0))}
-        />
-        <SummaryCard
+          label={copy.mostViewed}
+          value={mostViewedRepo?.viewsCount ?? copy.noTraffic}
+          subtitle={mostViewedRepo?.name}
           index={3}
-          label={copy.summary.mostViewed}
-          value={
-            sortedRepos[0]?.viewsCount != null
-              ? `${sortedRepos[0].viewsCount}`
-              : copy.summary.noTraffic
-          }
-          helper={sortedRepos[0]?.name ?? "—"}
         />
       </section>
 
-      <section className="flex flex-col gap-4 rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-zinc-400">{copy.sortBy}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(["views", "stars", "updated", "clones"] as SortKey[]).map((key) => {
-              const option = { key, label: copy.sortOptions[key] };
-              const active = option.key === sortKey;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() => setSortKey(option.key)}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                    active
-                      ? "border-white/30 bg-white text-black"
-                      : "border-white/10 bg-black/20 text-zinc-300 hover:border-white/20"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+      <section className="mb-8 rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        <div className="mb-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="font-semibold">{copy.sortBy}</span>
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as SortKey)}
+                className="h-10 min-w-[180px] appearance-none rounded-md border border-border bg-background/50 px-3 pr-9 text-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+              >
+                <option value="views">{copy.views}</option>
+                <option value="stars">{copy.stars}</option>
+                <option value="updated">{copy.updated}</option>
+                <option value="clones">{copy.clones}</option>
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <ChevronDown />
+              </span>
+            </div>
           </div>
         </div>
-        <p className="max-w-xl text-sm leading-6 text-zinc-400">{copy.trafficHint}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{copy.mvpNote}</p>
       </section>
 
-      <section className="grid gap-6">
-        {sortedRepos.map((repo) => {
-          const signal = getSignal(repo, locale);
-
-          return (
-            <article
-              key={repo.id}
-              className="group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950/70 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.24)] transition duration-300 hover:-translate-y-1 hover:border-white/20"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.10),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(168,85,247,0.10),_transparent_28%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="flex items-start justify-between gap-4">
-                <div className="relative space-y-2">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-white">{repo.name}</h2>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-xs ${toneClass(signal.tone)}`}
-                    >
-                      {signal.label}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-400">{repo.description ?? copy.noDescription}</p>
-                </div>
-                <a
-                  href={repo.htmlUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="relative rounded-full border border-white/10 px-3 py-1.5 text-sm text-zinc-200 opacity-80 transition hover:border-white/30 hover:opacity-100"
-                >
-                  {copy.open}
-                </a>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Metric label={copy.metrics.views} value={repo.viewsCount} fallback="—" accent="blue" />
-                <Metric
-                  label={copy.metrics.clones}
-                  value={repo.clonesCount}
-                  fallback="—"
-                  accent="violet"
-                />
-                <Metric label={copy.metrics.stars} value={repo.stargazersCount} accent="amber" />
-                <Metric label={copy.metrics.forks} value={repo.forksCount} accent="emerald" />
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2 text-xs text-zinc-400">
-                <Chip label={`${copy.chips.updated} ${formatRelativeDate(repo.pushedAt, locale)}`} />
-                <Chip label={`${repo.openIssuesCount} ${copy.chips.openIssues}`} />
-                {repo.language ? <Chip label={repo.language} /> : null}
-                {repo.homepage ? <Chip label={copy.chips.hasHomepage} /> : null}
-                {!repo.trafficAvailable ? <Chip label={copy.chips.trafficUnavailable} /> : null}
-              </div>
-            </article>
-          );
-        })}
+      <section className="grid grid-cols-1 gap-6">
+        {sortedRepos.map((repo) => (
+          <RepoCard key={repo.id} repo={repo} copy={copy} locale={locale} />
+        ))}
       </section>
-    </div>
+    </>
   );
 }
 
 function SummaryCard({
-  index = 0,
   label,
   value,
-  helper,
+  subtitle,
+  index = 0,
 }: {
-  index?: number;
   label: string;
-  value: string;
-  helper?: string;
+  value: string | number;
+  subtitle?: string | null;
+  index?: number;
 }) {
   const gradients = [
-    "from-blue-500/12 to-blue-600/4",
-    "from-violet-500/12 to-violet-600/4",
-    "from-emerald-500/12 to-emerald-600/4",
-    "from-amber-500/12 to-amber-600/4",
+    "from-blue-500/10 to-blue-600/5",
+    "from-purple-500/10 to-purple-600/5",
+    "from-green-500/10 to-green-600/5",
+    "from-orange-500/10 to-orange-600/5",
   ];
-  const textGradients = [
-    "from-blue-300 to-blue-500",
-    "from-violet-300 to-violet-500",
-    "from-emerald-300 to-emerald-500",
-    "from-amber-200 to-amber-500",
+
+  const iconColors = [
+    "from-blue-500 to-blue-600",
+    "from-purple-500 to-purple-600",
+    "from-green-500 to-green-600",
+    "from-orange-500 to-orange-600",
   ];
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-gradient-to-br ${gradients[index % 4]} p-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)]`}
-    >
+    <div className="transition duration-200 hover:-translate-y-1">
       <div
-        className={`absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${textGradients[index % 4]} opacity-10 blur-2xl`}
-      />
-      <p className="relative text-sm font-medium text-zinc-400">{label}</p>
-      <p
-        className={`relative mt-3 bg-gradient-to-r ${textGradients[index % 4]} bg-clip-text text-4xl font-semibold text-transparent`}
+        className={`relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br ${gradients[index % 4]} p-6 backdrop-blur-sm`}
       >
-        {value}
-      </p>
-      {helper ? <p className="mt-1 text-xs text-zinc-500">{helper}</p> : null}
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  fallback,
-  accent = "blue",
-}: {
-  label: string;
-  value: number | null;
-  fallback?: string;
-  accent?: "blue" | "violet" | "amber" | "emerald";
-}) {
-  const accents = {
-    blue: "bg-blue-500/10 text-blue-300",
-    violet: "bg-violet-500/10 text-violet-300",
-    amber: "bg-amber-500/10 text-amber-300",
-    emerald: "bg-emerald-500/10 text-emerald-300",
-  } as const;
-
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-3 transition group-hover:border-white/20">
-      <div className="flex items-center gap-3">
-        <span
-          className={`flex h-10 w-10 items-center justify-center rounded-xl ${accents[accent]}`}
-          aria-hidden="true"
-        >
-          <MetricGlyph accent={accent} />
-        </span>
-        <div>
-          <p className="text-[11px] font-medium text-zinc-500">{label}</p>
-          <p className="mt-0.5 text-xl font-medium text-white">
-            {value == null ? fallback ?? "0" : new Intl.NumberFormat("en").format(value)}
-          </p>
+        <div
+          className={`absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br ${iconColors[index % 4]} opacity-5 transition duration-500 hover:scale-150`}
+        />
+        <div className="relative">
+          <div className="mb-3 text-sm font-medium text-muted-foreground">{label}</div>
+          <div
+            className={`mb-2 bg-gradient-to-r ${iconColors[index % 4]} bg-clip-text text-4xl font-bold text-transparent`}
+          >
+            {value}
+          </div>
+          {subtitle ? <div className="truncate text-sm text-muted-foreground">{subtitle}</div> : null}
         </div>
       </div>
     </div>
   );
 }
 
-function Chip({ label }: { label: string }) {
-  return <span className="rounded-full border border-white/10 px-2.5 py-1">{label}</span>;
+function RepoCard({
+  repo,
+  copy,
+  locale,
+}: {
+  repo: RadarRepo;
+  copy: CopySet;
+  locale: Locale;
+}) {
+  const signal = getSignal(repo, locale);
+  const relativeDate = formatRelativeDate(repo.updatedAt, locale);
+
+  return (
+    <article className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-7 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+      <div className="relative">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="mb-3 flex items-center gap-3">
+              <h3 className="text-xl font-bold transition-colors group-hover:text-primary">{repo.name}</h3>
+              <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${signal.className}`}>
+                {signal.label}
+              </span>
+            </div>
+            <p className="mb-5 leading-relaxed text-muted-foreground">
+              {repo.description || copy.noDescription}
+            </p>
+          </div>
+          <a
+            href={repo.htmlUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-3 rounded-md p-2 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent"
+            aria-label={copy.open}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
+
+        <div className="mb-5 grid grid-cols-2 gap-6 rounded-lg bg-muted/30 p-4 sm:grid-cols-4">
+          <MetricBlock icon={<Eye className="h-5 w-5" />} tone="blue" label={copy.views} value={repo.trafficAvailable ? repo.viewsCount : null} />
+          <MetricBlock icon={<GitBranch className="h-5 w-5" />} tone="purple" label={copy.clones} value={repo.trafficAvailable ? repo.clonesCount : null} />
+          <MetricBlock icon={<Star className="h-5 w-5" />} tone="yellow" label={copy.stars} value={repo.stargazersCount} />
+          <MetricBlock icon={<GitFork className="h-5 w-5" />} tone="green" label={copy.forks} value={repo.forksCount} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge>{copy.updatedLabel} {relativeDate}</Badge>
+          {repo.openIssuesCount > 0 ? (
+            <Badge>
+              <AlertCircle className="h-3 w-3" />
+              {repo.openIssuesCount} {copy.openIssues}
+            </Badge>
+          ) : null}
+          {repo.language ? <Badge>{repo.language}</Badge> : null}
+          {repo.homepage ? <Badge>{copy.hasHomepage}</Badge> : null}
+          {!repo.trafficAvailable ? <Badge tone="warning">{copy.trafficUnavailable}</Badge> : null}
+        </div>
+      </div>
+    </article>
+  );
 }
 
-function MetricGlyph({
-  accent,
+function MetricBlock({
+  icon,
+  tone,
+  label,
+  value,
 }: {
-  accent: "blue" | "violet" | "amber" | "emerald";
+  icon: React.ReactNode;
+  tone: "blue" | "purple" | "yellow" | "green";
+  label: string;
+  value: number | null;
 }) {
-  switch (accent) {
-    case "violet":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
-          <path d="M8 7v10" />
-          <path d="M16 7v10" />
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      );
-    case "amber":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-          <path d="m12 3 2.8 5.67 6.25.91-4.52 4.4 1.06 6.22L12 17.24 6.41 20.2l1.07-6.22-4.53-4.4 6.26-.91z" />
-        </svg>
-      );
-    case "emerald":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
-          <path d="M9 5H5v4" />
-          <path d="M15 19h4v-4" />
-          <path d="M5 9 15 19" />
-          <path d="M19 15 9 5" />
-        </svg>
-      );
-    case "blue":
-    default:
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
-          <circle cx="12" cy="12" r="3.5" />
-          <path d="M2.5 12h2.7" />
-          <path d="M18.8 12h2.7" />
-          <path d="m5.3 5.3 1.9 1.9" />
-          <path d="m16.8 16.8 1.9 1.9" />
-          <path d="m18.7 5.3-1.9 1.9" />
-          <path d="m7.2 16.8-1.9 1.9" />
-        </svg>
-      );
-  }
+  const toneClass = {
+    blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    yellow: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+    green: "bg-green-500/10 text-green-600 dark:text-green-400",
+  }[tone];
+
+  return (
+    <div className="flex items-center gap-3 transition duration-200 hover:scale-105">
+      <div className={`rounded-lg p-2 ${toneClass}`}>{icon}</div>
+      <div>
+        <div className="mb-0.5 text-xs font-medium text-muted-foreground">{label}</div>
+        <div className="text-lg font-bold">
+          {value == null ? "—" : value.toLocaleString()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Badge({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "warning";
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${
+        tone === "warning"
+          ? "border border-amber-500/30 text-amber-600 dark:text-amber-400"
+          : "bg-secondary text-secondary-foreground"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ChevronDown() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[2]">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
 }
