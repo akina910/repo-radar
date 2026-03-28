@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Search, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Moon, Search, Sun, TrendingUp } from "lucide-react";
 
 import { RepoRadar, type RadarRepo } from "@/components/repo-radar";
 
 type Locale = "en" | "ja";
+type Theme = "light" | "dark";
 
 const COPY = {
   en: {
@@ -14,6 +15,7 @@ const COPY = {
     description:
       "A lightweight dashboard for GitHub repositories. It focuses on repo-level attention, not generic analytics noise.",
     language: "Language",
+    theme: "Theme",
     tracking: "GitHub username",
     usernamePlaceholder: "Enter GitHub username",
     load: "Load",
@@ -27,6 +29,7 @@ const COPY = {
     description:
       "GitHub リポジトリを見るための軽量ダッシュボードです。一般的な analytics ではなく、リポジトリごとの反応に絞ります。",
     language: "言語",
+    theme: "テーマ",
     tracking: "GitHubユーザー",
     usernamePlaceholder: "GitHubユーザー名を入力",
     load: "読み込む",
@@ -44,7 +47,25 @@ export function RepoRadarShell({
   username: string | null;
 }) {
   const [locale, setLocale] = useState<Locale>("en");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+
+    const storedTheme = window.localStorage.getItem("repo-radar-theme");
+
+    if (storedTheme === "light" || storedTheme === "dark") {
+      return storedTheme;
+    }
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
   const copy = COPY[locale];
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    window.localStorage.setItem("repo-radar-theme", theme);
+  }, [theme]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground">
@@ -85,6 +106,44 @@ export function RepoRadarShell({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6 flex items-center justify-end">
+            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/50 p-1.5 backdrop-blur-sm">
+              <span className="px-2 text-sm text-muted-foreground">{copy.theme}</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTheme("light")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    theme === "light"
+                      ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-sm"
+                      : "text-foreground hover:bg-accent"
+                  }`}
+                  aria-label="Light mode"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sun className="h-4 w-4" />
+                    <span>Light</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme("dark")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    theme === "dark"
+                      ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-sm"
+                      : "text-foreground hover:bg-accent"
+                  }`}
+                  aria-label="Dark mode"
+                >
+                  <span className="flex items-center gap-2">
+                    <Moon className="h-4 w-4" />
+                    <span>Dark</span>
+                  </span>
+                </button>
               </div>
             </div>
           </div>
