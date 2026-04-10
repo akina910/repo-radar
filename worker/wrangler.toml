@@ -1,0 +1,18 @@
+name = "repo-radar-collector"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[vars]
+GITHUB_USERNAME = "akina910"
+
+[[d1_databases]]
+binding = "repo_radar_db"
+database_name = "repo-radar-db"
+database_id = "016dd0c6-345a-4ebd-bd9d-de2cbecdb860"
+
+[[kv_namespaces]]
+binding = "repo_radar_kv"
+id = "2fa43c6e27ef452aa6bd4548bd309109"
+
+[triggers]
+crons = ["0 2 * * *"]
