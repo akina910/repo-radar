@@ -162,6 +162,7 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
           clonesCount: collected.total_clones,
           peakViews: collected.peak_views,
           trafficAvailable: true,
+          collectorBacked: true,
         } satisfies RadarRepo;
       }
 
@@ -188,6 +189,7 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
         clonesCount: clones?.count ?? null,
         peakViews: null,
         trafficAvailable: views !== null || clones !== null,
+        collectorBacked: false,
       } satisfies RadarRepo;
     }),
   );

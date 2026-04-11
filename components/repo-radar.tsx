@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ExternalLink,
@@ -9,6 +9,8 @@ import {
   GitFork,
   Star,
 } from "lucide-react";
+
+import type { TrafficDay } from "@/app/api/traffic/[repo]/route";
 
 export type RadarRepo = {
   id: number;
@@ -27,6 +29,7 @@ export type RadarRepo = {
   clonesCount: number | null;
   peakViews: number | null;
   trafficAvailable: boolean;
+  collectorBacked: boolean;
 };
 
 type SortKey = "views" | "stars" | "updated" | "clones" | "neglected";
@@ -192,6 +195,19 @@ export function RepoRadar({
 }) {
   const copy = COPY[locale];
   const [sortBy, setSortBy] = useState<SortKey>("views");
+  const [sparklines, setSparklines] = useState<Record<string, TrafficDay[]> | null>(null);
+
+  useEffect(() => {
+    const names = repos.filter((r) => r.collectorBacked).map((r) => r.name);
+    if (names.length === 0) {
+      setSparklines({});
+      return;
+    }
+    fetch(`/api/traffic-batch?repos=${names.map(encodeURIComponent).join(",")}`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data: Record<string, TrafficDay[]>) => setSparklines(data))
+      .catch(() => setSparklines({}));
+  }, [repos]);
 
   const sortedRepos = useMemo(() => {
     return [...repos].sort((left, right) => {
@@ -262,7 +278,13 @@ export function RepoRadar({
 
       <section className="grid grid-cols-1 gap-6">
         {sortedRepos.map((repo) => (
-          <RepoCard key={repo.id} repo={repo} copy={copy} locale={locale} />
+          <RepoCard
+            key={repo.id}
+            repo={repo}
+            copy={copy}
+            locale={locale}
+            sparklineDays={repo.collectorBacked ? (sparklines?.[repo.name] ?? null) : undefined}
+          />
         ))}
       </section>
     </>
@@ -320,10 +342,12 @@ function RepoCard({
   repo,
   copy,
   locale,
+  sparklineDays,
 }: {
   repo: RadarRepo;
   copy: CopySet;
   locale: Locale;
+  sparklineDays?: TrafficDay[] | null;
 }) {
   const signal = getSignal(repo, locale);
   const relativeDate = formatRelativeDate(repo.updatedAt, locale);
@@ -364,17 +388,22 @@ function RepoCard({
           <MetricBlock icon={<GitFork className="h-5 w-5" />} tone="green" label={copy.forks} value={repo.forksCount} />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Badge>{copy.updatedLabel} {relativeDate}</Badge>
-          {repo.openIssuesCount > 0 ? (
-            <Badge>
-              <AlertCircle className="h-3 w-3" />
-              {repo.openIssuesCount} {copy.openIssues}
-            </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Badge>{copy.updatedLabel} {relativeDate}</Badge>
+            {repo.openIssuesCount > 0 ? (
+              <Badge>
+                <AlertCircle className="h-3 w-3" />
+                {repo.openIssuesCount} {copy.openIssues}
+              </Badge>
+            ) : null}
+            {repo.language ? <Badge>{repo.language}</Badge> : null}
+            {repo.homepage ? <Badge>{copy.hasHomepage}</Badge> : null}
+            {!repo.trafficAvailable ? <Badge tone="warning">{copy.trafficUnavailable}</Badge> : null}
+          </div>
+          {repo.collectorBacked ? (
+            <Sparkline days={sparklineDays ?? null} />
           ) : null}
-          {repo.language ? <Badge>{repo.language}</Badge> : null}
-          {repo.homepage ? <Badge>{copy.hasHomepage}</Badge> : null}
-          {!repo.trafficAvailable ? <Badge tone="warning">{copy.trafficUnavailable}</Badge> : null}
         </div>
       </div>
     </article>
@@ -436,6 +465,50 @@ function ChevronDown() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[2]">
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function Sparkline({ days }: { days: TrafficDay[] | null }) {
+  if (days === null) {
+    return <div className="h-8 w-24 animate-pulse rounded bg-muted/40" />;
+  }
+  if (days.length === 0) {
+    return null;
+  }
+
+  const W = 96;
+  const H = 32;
+  const values = days.map((d) => d.views_count);
+  const max = Math.max(...values, 1);
+  const step = W / Math.max(values.length - 1, 1);
+
+  const points = values
+    .map((v, i) => `${(i * step).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`)
+    .join(" ");
+
+  // Area fill path
+  const first = `0,${H}`;
+  const last = `${((values.length - 1) * step).toFixed(1)},${H}`;
+  const areaPoints = `${first} ${points} ${last}`;
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      aria-hidden="true"
+      className="overflow-visible"
+    >
+      <polygon points={areaPoints} className="fill-blue-500/10" />
+      <polyline
+        points={points}
+        fill="none"
+        className="stroke-blue-500"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
