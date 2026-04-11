@@ -39,6 +39,7 @@ type CollectorRepo = {
   total_clones: number;
   peak_views: number;
   days_with_data: number;
+  github_repo_id?: number;
 };
 
 const API_BASE = "https://api.github.com";
@@ -131,13 +132,16 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
     collectorOwner && collectorOwner.toLowerCase() === username.toLowerCase()
       ? await fetchFromCollector()
       : null;
-  const collectorMap = new Map<string, CollectorRepo>(
+  const collectorMapById = new Map<number, CollectorRepo>(
+    collectorData?.flatMap((r) => r.github_repo_id != null ? [[r.github_repo_id, r]] : []) ?? [],
+  );
+  const collectorMapByName = new Map<string, CollectorRepo>(
     collectorData?.map((r) => [r.repo_name, r]) ?? [],
   );
 
   return Promise.all(
     publicRepos.map(async (repo) => {
-      const collected = collectorMap.get(repo.name);
+      const collected = collectorMapById.get(repo.id) ?? collectorMapByName.get(repo.name);
 
       if (collected && collected.days_with_data > 0) {
         // Use collector data (90-day history)
@@ -156,6 +160,7 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
           pushedAt: repo.pushed_at,
           viewsCount: collected.total_views,
           clonesCount: collected.total_clones,
+          peakViews: collected.peak_views,
           trafficAvailable: true,
         } satisfies RadarRepo;
       }
@@ -181,6 +186,7 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
         pushedAt: repo.pushed_at,
         viewsCount: views?.count ?? null,
         clonesCount: clones?.count ?? null,
+        peakViews: null,
         trafficAvailable: views !== null || clones !== null,
       } satisfies RadarRepo;
     }),

@@ -25,10 +25,11 @@ export type RadarRepo = {
   pushedAt: string;
   viewsCount: number | null;
   clonesCount: number | null;
+  peakViews: number | null;
   trafficAvailable: boolean;
 };
 
-type SortKey = "views" | "stars" | "updated" | "clones";
+type SortKey = "views" | "stars" | "updated" | "clones" | "neglected";
 type Locale = "en" | "ja";
 
 type CopySet = {
@@ -41,11 +42,13 @@ type CopySet = {
   clones: string;
   stars: string;
   updated: string;
+  neglected: string;
   forks: string;
   updatedLabel: string;
   openIssues: string;
   hasHomepage: string;
   trafficUnavailable: string;
+  peakViews: string;
   open: string;
   mvpNote: string;
   noDescription: string;
@@ -54,6 +57,7 @@ type CopySet = {
     active: string;
     cold: string;
     fresh: string;
+    neglected: string;
   };
 };
 
@@ -68,11 +72,13 @@ const COPY: Record<Locale, CopySet> = {
     clones: "Clones",
     stars: "Stars",
     updated: "Updated",
+    neglected: "Neglected",
     forks: "Forks",
     updatedLabel: "Updated",
     openIssues: "open issues",
     hasHomepage: "Has homepage",
     trafficUnavailable: "Traffic unavailable",
+    peakViews: "Peak",
     open: "Open",
     mvpNote:
       "This MVP reads your public repositories and surfaces the repos that are getting attention. Traffic numbers depend on a GitHub token with access to traffic metrics.",
@@ -82,6 +88,7 @@ const COPY: Record<Locale, CopySet> = {
       active: "Active",
       cold: "Cold",
       fresh: "Fresh",
+      neglected: "Neglected",
     },
   },
   ja: {
@@ -94,11 +101,13 @@ const COPY: Record<Locale, CopySet> = {
     clones: "Clones",
     stars: "Stars",
     updated: "更新順",
+    neglected: "放置気味",
     forks: "Forks",
     updatedLabel: "更新",
     openIssues: "未解決の問題",
     hasHomepage: "ホームページあり",
     trafficUnavailable: "Traffic取得不可",
+    peakViews: "ピーク",
     open: "開く",
     mvpNote:
       "この MVP は公開リポジトリを読み込み、注目を集めているリポジトリを表示します。Traffic 数値は GitHub トークンとアクセス権限に依存します。",
@@ -106,8 +115,9 @@ const COPY: Record<Locale, CopySet> = {
     noTraffic: "—",
     signals: {
       active: "反応あり",
-      cold: "放置気味",
+      cold: "停止",
       fresh: "新しめ",
+      neglected: "放置気味",
     },
   },
 };
@@ -137,19 +147,30 @@ function formatRelativeDate(dateString: string, locale: Locale): string {
 
 function getSignal(repo: RadarRepo, locale: Locale) {
   const copy = COPY[locale];
+  const views = repo.viewsCount ?? 0;
+  const pushedDaysAgo = Math.abs(
+    Math.round((Date.now() - new Date(repo.pushedAt).getTime()) / (1000 * 60 * 60 * 24)),
+  );
 
-  if ((repo.viewsCount ?? 0) >= 20 || repo.stargazersCount >= 3) {
+  // Neglected first: starred but no recent pushes and low traffic
+  // Only apply views < 10 filter when traffic data is actually present
+  if (repo.stargazersCount >= 2 && pushedDaysAgo > 30 && repo.trafficAvailable && views < 10) {
+    return {
+      label: copy.signals.neglected,
+      className: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    };
+  }
+
+  // Active: getting views or well-starred
+  if (views >= 20 || repo.stargazersCount >= 5) {
     return {
       label: copy.signals.active,
       className: "border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400",
     };
   }
 
-  const updatedDays = Math.abs(
-    Math.round((Date.now() - new Date(repo.pushedAt).getTime()) / (1000 * 60 * 60 * 24)),
-  );
-
-  if (updatedDays > 30) {
+  // Cold: no pushes in 90+ days AND confirmed no traffic
+  if (pushedDaysAgo > 90 && repo.trafficAvailable && views === 0) {
     return {
       label: copy.signals.cold,
       className: "border-gray-500/20 bg-gray-500/10 text-gray-700 dark:text-gray-400",
@@ -181,6 +202,11 @@ export function RepoRadar({
           return (right.clonesCount ?? 0) - (left.clonesCount ?? 0);
         case "updated":
           return new Date(right.pushedAt).getTime() - new Date(left.pushedAt).getTime();
+        case "neglected": {
+          // High stars × low recent views = most worth revisiting
+          const score = (r: RadarRepo) => r.stargazersCount * 10 - (r.viewsCount ?? 0);
+          return score(right) - score(left);
+        }
         case "views":
         default:
           return (right.viewsCount ?? 0) - (left.viewsCount ?? 0);
@@ -223,6 +249,7 @@ export function RepoRadar({
                 <option value="stars">{copy.stars}</option>
                 <option value="updated">{copy.updated}</option>
                 <option value="clones">{copy.clones}</option>
+                <option value="neglected">{copy.neglected}</option>
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <ChevronDown />
@@ -329,8 +356,9 @@ function RepoCard({
           </a>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-6 rounded-lg bg-muted/30 p-4 dark:bg-white/6 sm:grid-cols-4">
+        <div className="mb-5 grid grid-cols-2 gap-6 rounded-lg bg-muted/30 p-4 dark:bg-white/6 sm:grid-cols-4 lg:grid-cols-5">
           <MetricBlock icon={<Eye className="h-5 w-5" />} tone="blue" label={copy.views} value={repo.trafficAvailable ? repo.viewsCount : null} />
+          <MetricBlock icon={<Eye className="h-5 w-5 opacity-60" />} tone="blue" label={copy.peakViews} value={repo.trafficAvailable && repo.peakViews != null ? repo.peakViews : null} />
           <MetricBlock icon={<GitBranch className="h-5 w-5" />} tone="purple" label={copy.clones} value={repo.trafficAvailable ? repo.clonesCount : null} />
           <MetricBlock icon={<Star className="h-5 w-5" />} tone="yellow" label={copy.stars} value={repo.stargazersCount} />
           <MetricBlock icon={<GitFork className="h-5 w-5" />} tone="green" label={copy.forks} value={repo.forksCount} />
