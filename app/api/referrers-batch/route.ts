@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import type { TrafficDay } from "@/lib/collector-types";
+import type { ReferrerSummary } from "@/lib/collector-types";
 
 function decodeRepoSegment(repo: string) {
   try {
@@ -26,24 +26,24 @@ export async function GET(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
 
   if (!baseUrl || repos.length === 0) {
-    return NextResponse.json({} as Record<string, TrafficDay[]>);
+    return NextResponse.json({} as Record<string, ReferrerSummary[]>);
   }
 
   const results = await Promise.all(
     repos.map(async (repo) => {
       try {
         const response = await fetch(
-          `${baseUrl}/api/repos/${encodeURIComponent(repo)}/traffic?days=90`,
+          `${baseUrl}/api/repos/${encodeURIComponent(repo)}/referrers?days=30`,
           { next: { revalidate: 3600 } },
         );
-        if (!response.ok) return [repo, [] as TrafficDay[]] as const;
+        if (!response.ok) return [repo, [] as ReferrerSummary[]] as const;
         const data = (await response.json()) as unknown;
-        return [repo, Array.isArray(data) ? (data as TrafficDay[]) : []] as const;
+        return [repo, Array.isArray(data) ? (data as ReferrerSummary[]) : []] as const;
       } catch {
-        return [repo, [] as TrafficDay[]] as const;
+        return [repo, [] as ReferrerSummary[]] as const;
       }
     }),
   );
 
-  return NextResponse.json(Object.fromEntries(results) as Record<string, TrafficDay[]>);
+  return NextResponse.json(Object.fromEntries(results) as Record<string, ReferrerSummary[]>);
 }

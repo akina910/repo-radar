@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Moon, Search, Sun, TrendingUp } from "lucide-react";
 
 import { RepoRadar, type RadarRepo } from "@/components/repo-radar";
+import type { CollectorStatus } from "@/lib/collector-types";
 
 type Locale = "en" | "ja";
 type Theme = "light" | "dark";
@@ -19,6 +20,12 @@ const COPY = {
     tracking: "GitHub username",
     usernamePlaceholder: "Enter GitHub username",
     load: "Load",
+    collectorHistoryOn: "90-day collector",
+    collectorDirect: "GitHub direct mode",
+    collectorUnavailable: "Collector unreachable",
+    collectorSetupNeeded: "Collector not configured",
+    lastSync: "Last sync",
+    syncedRepos: "Synced repos",
     emptyTitle: "No repositories loaded yet.",
     emptyDescription:
       "Add your GitHub username in the environment file and restart the app. This first version keeps the scope intentionally small.",
@@ -33,18 +40,40 @@ const COPY = {
     tracking: "GitHubユーザー",
     usernamePlaceholder: "GitHubユーザー名を入力",
     load: "読み込む",
+    collectorHistoryOn: "90日 collector",
+    collectorDirect: "GitHub 直取得モード",
+    collectorUnavailable: "Collector に到達できません",
+    collectorSetupNeeded: "Collector 未設定",
+    lastSync: "最終同期",
+    syncedRepos: "同期済みrepo数",
     emptyTitle: "まだリポジトリが読み込まれていません。",
     emptyDescription:
       "環境変数に GitHub ユーザー名を入れて、アプリを再起動してください。最初の版は意図的に小さくしています。",
   },
 } as const;
 
+function formatCollectorTimestamp(dateString: string, locale: Locale) {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return date.toLocaleString(locale === "ja" ? "ja-JP" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  });
+}
+
 export function RepoRadarShell({
   repos,
   username,
+  collectorStatus,
 }: {
   repos: RadarRepo[];
   username: string | null;
+  collectorStatus: CollectorStatus;
 }) {
   const [locale, setLocale] = useState<Locale>("en");
   const [theme, setTheme] = useState<Theme>(() => {
@@ -61,6 +90,14 @@ export function RepoRadarShell({
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
   const copy = COPY[locale];
+  const collectorEnabled = repos.some((repo) => repo.collectorBacked);
+  const collectorLabel = collectorEnabled
+    ? copy.collectorHistoryOn
+    : collectorStatus.configured
+      ? collectorStatus.reachable
+        ? copy.collectorDirect
+        : copy.collectorUnavailable
+      : copy.collectorSetupNeeded;
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -151,6 +188,22 @@ export function RepoRadarShell({
           <p className="mb-3 text-2xl font-medium">{copy.hero}</p>
           <p className="mb-8 max-w-3xl text-lg text-muted-foreground">{copy.description}</p>
 
+          <div className="mb-8 flex flex-wrap items-center gap-2">
+            <InfoPill tone={collectorEnabled ? "success" : collectorStatus.reachable ? "default" : "warning"}>
+              {collectorLabel}
+            </InfoPill>
+            {collectorStatus.lastCollectionAt ? (
+              <InfoPill>
+                {copy.lastSync} {formatCollectorTimestamp(collectorStatus.lastCollectionAt, locale)}
+              </InfoPill>
+            ) : null}
+            {collectorStatus.repoCount != null ? (
+              <InfoPill>
+                {copy.syncedRepos} {collectorStatus.repoCount}
+              </InfoPill>
+            ) : null}
+          </div>
+
           <form action="/" method="get" className="flex max-w-lg items-end gap-3">
             <div className="flex-1">
               <label className="mb-2 block text-sm font-medium">{copy.tracking}</label>
@@ -192,5 +245,25 @@ export function RepoRadarShell({
         )}
       </div>
     </main>
+  );
+}
+
+function InfoPill({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "success" | "warning";
+}) {
+  const className = {
+    default: "border-border/60 bg-card/60 text-muted-foreground dark:border-white/10 dark:bg-white/6",
+    success: "border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400",
+    warning: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  }[tone];
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium ${className}`}>
+      {children}
+    </span>
   );
 }

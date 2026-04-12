@@ -3,6 +3,10 @@ import "server-only";
 import { cache } from "react";
 
 import type { RadarRepo } from "@/components/repo-radar";
+import type {
+  CollectorStatus,
+  CollectorStatusPayload,
+} from "@/lib/collector-types";
 
 type GitHubRepo = {
   id: number;
@@ -26,6 +30,7 @@ type TrafficPayload = {
 
 // Shape returned by the Cloudflare collector /api/repos
 type CollectorRepo = {
+  github_repo_id?: number;
   repo_name: string;
   stars_count: number;
   forks_count: number;
@@ -39,7 +44,6 @@ type CollectorRepo = {
   total_clones: number;
   peak_views: number;
   days_with_data: number;
-  github_repo_id?: number;
 };
 
 const API_BASE = "https://api.github.com";
@@ -105,6 +109,50 @@ async function fetchFromCollector(): Promise<CollectorRepo[] | null> {
     return null;
   }
 }
+
+export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
+  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+
+  if (!baseUrl) {
+    return {
+      configured: false,
+      reachable: false,
+      lastCollectionAt: null,
+      repoCount: null,
+    };
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/status`, {
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      return {
+        configured: true,
+        reachable: false,
+        lastCollectionAt: null,
+        repoCount: null,
+      };
+    }
+
+    const data = (await response.json()) as CollectorStatusPayload;
+
+    return {
+      configured: true,
+      reachable: true,
+      lastCollectionAt: data.last_collection?.collected_at ?? null,
+      repoCount: data.last_collection?.repo_count ?? null,
+    };
+  } catch {
+    return {
+      configured: true,
+      reachable: false,
+      lastCollectionAt: null,
+      repoCount: null,
+    };
+  }
+});
 
 export const getRadarRepos = cache(async (usernameOverride?: string): Promise<RadarRepo[]> => {
   const rawUsername =

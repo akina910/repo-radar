@@ -6,6 +6,7 @@
  * API:
  *   GET /api/repos                       – repo list with 14-day + 90-day aggregated traffic
  *   GET /api/repos/:name/traffic?days=90 – daily traffic snapshots for one repo
+ *   GET /api/repos/:name/referrers?days=30 – top referrers aggregated over recent days
  *   POST /api/collect                    – manual trigger (requires API_SECRET header)
  */
 
@@ -199,6 +200,7 @@ async function handleApiRepos(env: Env, days = 90): Promise<Response> {
   const rows = await env.repo_radar_db
     .prepare(
       `SELECT
+         m.github_repo_id,
          m.repo_name,
          m.stars_count,
          m.forks_count,
@@ -239,6 +241,32 @@ async function handleApiTraffic(env: Env, repoName: string, days = 90): Promise<
   return json(rows.results);
 }
 
+async function handleApiReferrers(env: Env, repoName: string, days = 30): Promise<Response> {
+  const cutoff = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const rows = await env.repo_radar_db
+    .prepare(
+      `SELECT
+         r.referrer,
+         COALESCE(SUM(r.count), 0) AS total_count,
+         MAX(r.date)               AS last_seen
+       FROM referrers r
+       JOIN repo_metadata m ON m.github_repo_id = r.github_repo_id
+       WHERE m.repo_name = ? AND r.date >= ?
+       GROUP BY r.referrer
+       ORDER BY total_count DESC, last_seen DESC
+       LIMIT 5`,
+    )
+    .bind(repoName, cutoff)
+    .all();
+
+  return json(rows.results);
+}
+
+function parsePositiveDays(value: string | null, fallback: number) {
+  const parsed = parseInt(value ?? String(fallback), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -259,14 +287,22 @@ function corsHeaders() {
   });
 }
 
-export default {
+function decodeRepoName(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+const worker = {
   // cron trigger
-  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+  async scheduled(_event: ScheduledEvent, env: Env) {
     await collectAll(env);
   },
 
   // HTTP handler
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") return corsHeaders();
 
     const url = new URL(request.url);
@@ -285,15 +321,22 @@ export default {
 
     // GET /api/repos
     if (path === "/api/repos") {
-      const days = parseInt(url.searchParams.get("days") ?? "90", 10);
+      const days = parsePositiveDays(url.searchParams.get("days"), 90);
       return handleApiRepos(env, days);
     }
 
     // GET /api/repos/:name/traffic
     const trafficMatch = path.match(/^\/api\/repos\/([^/]+)\/traffic$/);
     if (trafficMatch) {
-      const days = parseInt(url.searchParams.get("days") ?? "90", 10);
-      return handleApiTraffic(env, trafficMatch[1], days);
+      const days = parsePositiveDays(url.searchParams.get("days"), 90);
+      return handleApiTraffic(env, decodeRepoName(trafficMatch[1]), days);
+    }
+
+    // GET /api/repos/:name/referrers
+    const referrersMatch = path.match(/^\/api\/repos\/([^/]+)\/referrers$/);
+    if (referrersMatch) {
+      const days = parsePositiveDays(url.searchParams.get("days"), 30);
+      return handleApiReferrers(env, decodeRepoName(referrersMatch[1]), days);
     }
 
     // GET /api/status
@@ -305,3 +348,5 @@ export default {
     return json({ error: "Not found" }, 404);
   },
 };
+
+export default worker;

@@ -7,7 +7,8 @@ A small dashboard for tracking how your public GitHub repositories are doing.
 ## What it does
 - loads your public GitHub repositories
 - shows stars, forks, open issues, last update time
-- optionally shows views and clones from GitHub traffic endpoints
+- optionally shows views, peak daily views, and clones from GitHub traffic endpoints
+- surfaces top referrers when the Cloudflare collector is enabled
 - lets you sort the list to spot what is moving
 
 ## Why it exists
@@ -40,5 +41,6 @@ GITHUB_TOKEN=your-github-token
 - `GITHUB_USERNAME` is required unless you pass `?username=...` in the URL
 - `GITHUB_TOKEN` is optional for basic repo metadata
 - views / clones depend on GitHub traffic endpoints and may be unavailable without a token
+- `NEXT_PUBLIC_COLLECTOR_URL` enables 90-day traffic history, collector sync status, and referrer badges
 - this MVP only looks at public repositories owned by one account
 - for one-click setup on Vercel, fill in the same two variables during the Deploy Button flow

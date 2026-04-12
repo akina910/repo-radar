@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 
-export type TrafficDay = {
-  date: string;
-  views_count: number;
-  views_uniques: number;
-  clones_count: number;
-  clones_uniques: number;
-};
+import type { TrafficDay } from "@/lib/collector-types";
 
 export async function GET(
   _request: Request,

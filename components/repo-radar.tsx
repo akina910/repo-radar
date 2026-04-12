@@ -10,7 +10,10 @@ import {
   Star,
 } from "lucide-react";
 
-import type { TrafficDay } from "@/app/api/traffic/[repo]/route";
+import type {
+  ReferrerSummary,
+  TrafficDay,
+} from "@/lib/collector-types";
 
 export type RadarRepo = {
   id: number;
@@ -52,6 +55,7 @@ type CopySet = {
   hasHomepage: string;
   trafficUnavailable: string;
   peakViews: string;
+  topReferrers: string;
   open: string;
   mvpNote: string;
   noDescription: string;
@@ -82,6 +86,7 @@ const COPY: Record<Locale, CopySet> = {
     hasHomepage: "Has homepage",
     trafficUnavailable: "Traffic unavailable",
     peakViews: "Peak",
+    topReferrers: "Top referrers",
     open: "Open",
     mvpNote:
       "This MVP reads your public repositories and surfaces the repos that are getting attention. Traffic numbers depend on a GitHub token with access to traffic metrics.",
@@ -111,6 +116,7 @@ const COPY: Record<Locale, CopySet> = {
     hasHomepage: "ホームページあり",
     trafficUnavailable: "Traffic取得不可",
     peakViews: "ピーク",
+    topReferrers: "流入元",
     open: "開く",
     mvpNote:
       "この MVP は公開リポジトリを読み込み、注目を集めているリポジトリを表示します。Traffic 数値は GitHub トークンとアクセス権限に依存します。",
@@ -124,6 +130,26 @@ const COPY: Record<Locale, CopySet> = {
     },
   },
 };
+
+const EMPTY_SPARKLINES: Record<string, TrafficDay[]> = {};
+const EMPTY_REFERRERS: Record<string, ReferrerSummary[]> = {};
+
+async function fetchBatchMap<T>(
+  input: string,
+  fallback: Record<string, T[]>,
+): Promise<Record<string, T[]>> {
+  try {
+    const response = await fetch(input);
+    if (!response.ok) {
+      return fallback;
+    }
+
+    const data = (await response.json()) as unknown;
+    return data && typeof data === "object" ? (data as Record<string, T[]>) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function formatRelativeDate(dateString: string, locale: Locale): string {
   const date = new Date(dateString);
@@ -195,19 +221,48 @@ export function RepoRadar({
 }) {
   const copy = COPY[locale];
   const [sortBy, setSortBy] = useState<SortKey>("views");
-  const [sparklines, setSparklines] = useState<Record<string, TrafficDay[]> | null>(null);
+  const [collectorData, setCollectorData] = useState<{
+    sparklines: Record<string, TrafficDay[]>;
+    referrers: Record<string, ReferrerSummary[]>;
+  }>({
+    sparklines: EMPTY_SPARKLINES,
+    referrers: EMPTY_REFERRERS,
+  });
+  const collectorRepoNames = useMemo(
+    () => repos.filter((repo) => repo.collectorBacked).map((repo) => repo.name),
+    [repos],
+  );
 
   useEffect(() => {
-    const names = repos.filter((r) => r.collectorBacked).map((r) => r.name);
-    if (names.length === 0) {
-      setSparklines({});
+    if (collectorRepoNames.length === 0) {
       return;
     }
-    fetch(`/api/traffic-batch?repos=${names.map(encodeURIComponent).join(",")}`)
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((data: Record<string, TrafficDay[]>) => setSparklines(data))
-      .catch(() => setSparklines({}));
-  }, [repos]);
+
+    const query = collectorRepoNames.map(encodeURIComponent).join(",");
+    let cancelled = false;
+
+    Promise.all([
+      fetchBatchMap<TrafficDay>(`/api/traffic-batch?repos=${query}`, EMPTY_SPARKLINES),
+      fetchBatchMap<ReferrerSummary>(`/api/referrers-batch?repos=${query}`, EMPTY_REFERRERS),
+    ])
+      .then(([sparklines, referrers]) => {
+        if (cancelled) {
+          return;
+        }
+
+        setCollectorData({
+          sparklines,
+          referrers,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [collectorRepoNames]);
+
+  const sparklines = collectorRepoNames.length > 0 ? collectorData.sparklines : EMPTY_SPARKLINES;
+  const referrers = collectorRepoNames.length > 0 ? collectorData.referrers : EMPTY_REFERRERS;
 
   const sortedRepos = useMemo(() => {
     return [...repos].sort((left, right) => {
@@ -284,6 +339,7 @@ export function RepoRadar({
             copy={copy}
             locale={locale}
             sparklineDays={repo.collectorBacked ? (sparklines?.[repo.name] ?? null) : undefined}
+            referrers={repo.collectorBacked ? (referrers?.[repo.name] ?? null) : undefined}
           />
         ))}
       </section>
@@ -343,11 +399,13 @@ function RepoCard({
   copy,
   locale,
   sparklineDays,
+  referrers,
 }: {
   repo: RadarRepo;
   copy: CopySet;
   locale: Locale;
   sparklineDays?: TrafficDay[] | null;
+  referrers?: ReferrerSummary[] | null;
 }) {
   const signal = getSignal(repo, locale);
   const relativeDate = formatRelativeDate(repo.updatedAt, locale);
@@ -389,7 +447,7 @@ function RepoCard({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge>{copy.updatedLabel} {relativeDate}</Badge>
             {repo.openIssuesCount > 0 ? (
               <Badge>
@@ -400,6 +458,9 @@ function RepoCard({
             {repo.language ? <Badge>{repo.language}</Badge> : null}
             {repo.homepage ? <Badge>{copy.hasHomepage}</Badge> : null}
             {!repo.trafficAvailable ? <Badge tone="warning">{copy.trafficUnavailable}</Badge> : null}
+            {referrers && referrers.length > 0 ? (
+              <ReferrersRow copy={copy} referrers={referrers} />
+            ) : null}
           </div>
           {repo.collectorBacked ? (
             <Sparkline days={sparklineDays ?? null} />
@@ -407,6 +468,25 @@ function RepoCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function ReferrersRow({
+  copy,
+  referrers,
+}: {
+  copy: CopySet;
+  referrers: ReferrerSummary[];
+}) {
+  return (
+    <>
+      <span className="text-xs font-medium text-muted-foreground">{copy.topReferrers}</span>
+      {referrers.slice(0, 3).map((referrer) => (
+        <Badge key={referrer.referrer}>
+          {referrer.referrer} {referrer.total_count.toLocaleString()}
+        </Badge>
+      ))}
+    </>
   );
 }
 
