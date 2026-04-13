@@ -64,6 +64,15 @@ type GHTrafficClones = {
 
 type GHReferrer = { referrer: string; count: number; uniques: number };
 
+type CollectorDbStats = {
+  ready: boolean;
+  latest_snapshot_date: string | null;
+  snapshots_count: number;
+  referrer_rows: number;
+  repos_with_history: number;
+  db_error: boolean;
+};
+
 async function collectAll(env: Env) {
   const username = env.GITHUB_USERNAME;
   const token = env.GITHUB_TOKEN;
@@ -262,6 +271,49 @@ async function handleApiReferrers(env: Env, repoName: string, days = 30): Promis
   return json(rows.results);
 }
 
+async function getDbStats(env: Env): Promise<CollectorDbStats> {
+  try {
+    const [trafficRows, referrerRows] = await Promise.all([
+      env.repo_radar_db
+        .prepare(
+          `SELECT
+             COUNT(*) AS snapshots_count,
+             COUNT(DISTINCT github_repo_id) AS repos_with_history,
+             MAX(date) AS latest_snapshot_date
+           FROM traffic_snapshots`,
+        )
+        .first<{
+          snapshots_count: number;
+          repos_with_history: number;
+          latest_snapshot_date: string | null;
+        }>(),
+      env.repo_radar_db
+        .prepare(`SELECT COUNT(*) AS referrer_rows FROM referrers`)
+        .first<{ referrer_rows: number }>(),
+    ]);
+
+    return {
+      ready: true,
+      latest_snapshot_date: trafficRows?.latest_snapshot_date ?? null,
+      snapshots_count: trafficRows?.snapshots_count ?? 0,
+      referrer_rows: referrerRows?.referrer_rows ?? 0,
+      repos_with_history: trafficRows?.repos_with_history ?? 0,
+      db_error: false,
+    };
+  } catch (error) {
+    console.error("Failed to read D1 status", error);
+
+    return {
+      ready: false,
+      latest_snapshot_date: null,
+      snapshots_count: 0,
+      referrer_rows: 0,
+      repos_with_history: 0,
+      db_error: true,
+    };
+  }
+}
+
 function parsePositiveDays(value: string | null, fallback: number) {
   const parsed = parseInt(value ?? String(fallback), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -341,8 +393,17 @@ const worker = {
 
     // GET /api/status
     if (path === "/api/status") {
-      const last = await env.repo_radar_kv.get("last_collection");
-      return json({ status: "ok", last_collection: last ? JSON.parse(last) : null });
+      const [last, dbStats] = await Promise.all([
+        env.repo_radar_kv.get("last_collection"),
+        getDbStats(env),
+      ]);
+      const status = dbStats.ready ? "ok" : "degraded";
+      return json({
+        status,
+        owner: env.GITHUB_USERNAME ?? null,
+        last_collection: last ? JSON.parse(last) : null,
+        db_stats: dbStats,
+      }, dbStats.ready ? 200 : 503);
     }
 
     return json({ error: "Not found" }, 404);

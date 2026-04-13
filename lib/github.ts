@@ -46,6 +46,8 @@ type CollectorRepo = {
   days_with_data: number;
 };
 
+type JsonRecord = Record<string, unknown>;
+
 const API_BASE = "https://api.github.com";
 
 function getHeaders() {
@@ -110,6 +112,53 @@ async function fetchFromCollector(): Promise<CollectorRepo[] | null> {
   }
 }
 
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function readNullableString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function readNullableNumber(value: unknown) {
+  return typeof value === "number" ? value : null;
+}
+
+function readNullableBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : null;
+}
+
+function hasCollectorStatusShape(value: unknown) {
+  if (!isJsonRecord(value)) {
+    return false;
+  }
+
+  return (
+    "status" in value ||
+    "owner" in value ||
+    "last_collection" in value ||
+    "db_stats" in value
+  );
+}
+
+function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" | "reachable"> {
+  const payload = isJsonRecord(data) ? data : {};
+  const lastCollection = isJsonRecord(payload.last_collection) ? payload.last_collection : null;
+  const dbStats = isJsonRecord(payload.db_stats) ? payload.db_stats : null;
+
+  return {
+    configuredOwner: readNullableString(payload.owner),
+    lastCollectionAt: readNullableString(lastCollection?.collected_at),
+    repoCount: readNullableNumber(lastCollection?.repo_count),
+    dbReady: typeof dbStats?.ready === "boolean" ? dbStats.ready : false,
+    latestSnapshotDate: readNullableString(dbStats?.latest_snapshot_date),
+    snapshotsCount: readNullableNumber(dbStats?.snapshots_count),
+    referrerRows: readNullableNumber(dbStats?.referrer_rows),
+    reposWithHistory: readNullableNumber(dbStats?.repos_with_history),
+    dbError: readNullableBoolean(dbStats?.db_error),
+  };
+}
+
 export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
   const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
 
@@ -117,8 +166,15 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
     return {
       configured: false,
       reachable: false,
+      configuredOwner: null,
       lastCollectionAt: null,
       repoCount: null,
+      dbReady: false,
+      latestSnapshotDate: null,
+      snapshotsCount: null,
+      referrerRows: null,
+      reposWithHistory: null,
+      dbError: null,
     };
   }
 
@@ -126,30 +182,50 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
     const response = await fetch(`${baseUrl}/api/status`, {
       next: { revalidate: 3600 },
     });
+    const data = (await response.json()) as CollectorStatusPayload;
+
+    if (hasCollectorStatusShape(data)) {
+      return {
+        configured: true,
+        reachable: true,
+        ...readCollectorStatus(data),
+      };
+    }
 
     if (!response.ok) {
       return {
         configured: true,
         reachable: false,
+        configuredOwner: null,
         lastCollectionAt: null,
         repoCount: null,
+        dbReady: false,
+        latestSnapshotDate: null,
+        snapshotsCount: null,
+        referrerRows: null,
+        reposWithHistory: null,
+        dbError: null,
       };
     }
-
-    const data = (await response.json()) as CollectorStatusPayload;
 
     return {
       configured: true,
       reachable: true,
-      lastCollectionAt: data.last_collection?.collected_at ?? null,
-      repoCount: data.last_collection?.repo_count ?? null,
+      ...readCollectorStatus(data),
     };
   } catch {
     return {
       configured: true,
       reachable: false,
+      configuredOwner: null,
       lastCollectionAt: null,
       repoCount: null,
+      dbReady: false,
+      latestSnapshotDate: null,
+      snapshotsCount: null,
+      referrerRows: null,
+      reposWithHistory: null,
+      dbError: null,
     };
   }
 });

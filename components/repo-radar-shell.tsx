@@ -23,9 +23,14 @@ const COPY = {
     collectorHistoryOn: "90-day collector",
     collectorDirect: "GitHub direct mode",
     collectorUnavailable: "Collector unreachable",
+    collectorDegraded: "Collector degraded",
     collectorSetupNeeded: "Collector not configured",
+    collectorWaiting: "Collector ready, waiting for first sync",
+    collectorOwner: "Collector owner",
     lastSync: "Last sync",
+    latestData: "Latest data",
     syncedRepos: "Synced repos",
+    reposWithHistory: "Repos with history",
     emptyTitle: "No repositories loaded yet.",
     emptyDescription:
       "Add your GitHub username in the environment file and restart the app. This first version keeps the scope intentionally small.",
@@ -43,9 +48,14 @@ const COPY = {
     collectorHistoryOn: "90日 collector",
     collectorDirect: "GitHub 直取得モード",
     collectorUnavailable: "Collector に到達できません",
+    collectorDegraded: "Collector の状態が不完全です",
     collectorSetupNeeded: "Collector 未設定",
+    collectorWaiting: "Collector は有効で、初回同期待ちです",
+    collectorOwner: "Collector対象",
     lastSync: "最終同期",
+    latestData: "最新データ日",
     syncedRepos: "同期済みrepo数",
+    reposWithHistory: "履歴ありrepo数",
     emptyTitle: "まだリポジトリが読み込まれていません。",
     emptyDescription:
       "環境変数に GitHub ユーザー名を入れて、アプリを再起動してください。最初の版は意図的に小さくしています。",
@@ -91,13 +101,32 @@ export function RepoRadarShell({
   });
   const copy = COPY[locale];
   const collectorEnabled = repos.some((repo) => repo.collectorBacked);
+  const viewerMatchesCollector =
+    Boolean(username) &&
+    Boolean(collectorStatus.configuredOwner) &&
+    username?.toLowerCase() === collectorStatus.configuredOwner?.toLowerCase();
+  const collectorWaiting =
+    viewerMatchesCollector &&
+    collectorStatus.configured &&
+    collectorStatus.reachable &&
+    collectorStatus.dbReady &&
+    collectorStatus.lastCollectionAt == null;
   const collectorLabel = collectorEnabled
     ? copy.collectorHistoryOn
-    : collectorStatus.configured
-      ? collectorStatus.reachable
-        ? copy.collectorDirect
-        : copy.collectorUnavailable
-      : copy.collectorSetupNeeded;
+    : !collectorStatus.configured
+      ? copy.collectorSetupNeeded
+      : !collectorStatus.reachable
+        ? copy.collectorUnavailable
+        : !collectorStatus.dbReady
+          ? copy.collectorDegraded
+          : collectorWaiting
+          ? copy.collectorWaiting
+          : copy.collectorDirect;
+  const collectorTone = collectorEnabled
+    ? "success"
+    : !collectorStatus.configured || !collectorStatus.reachable || !collectorStatus.dbReady
+      ? "warning"
+      : "default";
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -189,9 +218,14 @@ export function RepoRadarShell({
           <p className="mb-8 max-w-3xl text-lg text-muted-foreground">{copy.description}</p>
 
           <div className="mb-8 flex flex-wrap items-center gap-2">
-            <InfoPill tone={collectorEnabled ? "success" : collectorStatus.reachable ? "default" : "warning"}>
+            <InfoPill tone={collectorTone}>
               {collectorLabel}
             </InfoPill>
+            {collectorStatus.configured && collectorStatus.configuredOwner ? (
+              <InfoPill>
+                {copy.collectorOwner} {collectorStatus.configuredOwner}
+              </InfoPill>
+            ) : null}
             {collectorStatus.lastCollectionAt ? (
               <InfoPill>
                 {copy.lastSync} {formatCollectorTimestamp(collectorStatus.lastCollectionAt, locale)}
@@ -200,6 +234,16 @@ export function RepoRadarShell({
             {collectorStatus.repoCount != null ? (
               <InfoPill>
                 {copy.syncedRepos} {collectorStatus.repoCount}
+              </InfoPill>
+            ) : null}
+            {collectorStatus.latestSnapshotDate ? (
+              <InfoPill>
+                {copy.latestData} {collectorStatus.latestSnapshotDate}
+              </InfoPill>
+            ) : null}
+            {collectorStatus.reposWithHistory != null ? (
+              <InfoPill>
+                {copy.reposWithHistory} {collectorStatus.reposWithHistory}
               </InfoPill>
             ) : null}
           </div>

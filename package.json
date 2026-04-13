@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "collector:check": "node scripts/check-collector.mjs",
+    "collector:check:trigger": "node scripts/check-collector.mjs --trigger"
   },
   "dependencies": {
     "lucide-react": "^0.487.0",
