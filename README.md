@@ -55,11 +55,16 @@ The Cloudflare Worker is already wired for `repo-radar-collector`. What remains 
 bash scripts/setup-collector-secrets.sh
 ```
 
+This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local `.env.local` with:
+- `NEXT_PUBLIC_COLLECTOR_URL`
+- `COLLECTOR_API_SECRET`
+
 2. Add the printed values to Vercel as:
    - `NEXT_PUBLIC_COLLECTOR_URL`
    - `COLLECTOR_API_SECRET`
 3. Redeploy the Vercel app.
-4. Verify collector health:
+4. Open the app and use the `Sync collector` button once to force the first collection.
+5. Verify collector health:
 
 ```bash
 npm run collector:check
@@ -67,4 +72,5 @@ npm run collector:check:trigger
 ```
 
 `collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage.  
-`collector:check:trigger` also sends `POST /api/collect` before re-reading status.
+`collector:check:trigger` also sends `POST /api/collect` before re-reading status.  
+If you prefer to avoid local scripts after deployment, the app now exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env without exposing it to the browser.

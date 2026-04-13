@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Moon, Search, Sun, TrendingUp } from "lucide-react";
 
 import { RepoRadar, type RadarRepo } from "@/components/repo-radar";
@@ -31,6 +32,19 @@ const COPY = {
     latestData: "Latest data",
     syncedRepos: "Synced repos",
     reposWithHistory: "Repos with history",
+    syncCollector: "Sync collector",
+    syncingCollector: "Syncing…",
+    syncReady: "Trigger a manual sync once secrets and Vercel envs are set.",
+    syncUnlockHelp: "Manual sync is protected. Enter the trigger token to enable it in this browser.",
+    syncTokenLabel: "Trigger token",
+    syncTokenPlaceholder: "Enter trigger token",
+    unlockCollector: "Unlock sync",
+    unlockingCollector: "Unlocking…",
+    syncUnlockSuccess: "Manual sync unlocked for this browser.",
+    syncSessionExpired: "Manual sync session expired. Unlock it again.",
+    syncTokenRequired: "Trigger token is required.",
+    syncSuccess: "Collector sync finished.",
+    syncError: "Collector sync failed.",
     emptyTitle: "No repositories loaded yet.",
     emptyDescription:
       "Add your GitHub username in the environment file and restart the app. This first version keeps the scope intentionally small.",
@@ -56,11 +70,32 @@ const COPY = {
     latestData: "最新データ日",
     syncedRepos: "同期済みrepo数",
     reposWithHistory: "履歴ありrepo数",
+    syncCollector: "Collector同期",
+    syncingCollector: "同期中…",
+    syncReady: "secret と Vercel env を設定したら、手動同期を一度実行できます。",
+    syncUnlockHelp: "手動同期は保護されています。このブラウザで有効にするには trigger token を入力してください。",
+    syncTokenLabel: "Trigger token",
+    syncTokenPlaceholder: "trigger token を入力",
+    unlockCollector: "同期を有効化",
+    unlockingCollector: "有効化中…",
+    syncUnlockSuccess: "このブラウザで手動同期を有効化しました。",
+    syncSessionExpired: "手動同期セッションの期限が切れました。もう一度有効化してください。",
+    syncTokenRequired: "Trigger token は必須です。",
+    syncSuccess: "Collector 同期が完了しました。",
+    syncError: "Collector 同期に失敗しました。",
     emptyTitle: "まだリポジトリが読み込まれていません。",
     emptyDescription:
       "環境変数に GitHub ユーザー名を入れて、アプリを再起動してください。最初の版は意図的に小さくしています。",
   },
 } as const;
+
+type TriggerResponsePayload = {
+  ok?: boolean;
+  error?: string;
+  details?: { error?: string; raw?: string } | string | null;
+  raw?: string;
+  authenticated?: boolean;
+};
 
 function formatCollectorTimestamp(dateString: string, locale: Locale) {
   const date = new Date(dateString);
@@ -76,6 +111,42 @@ function formatCollectorTimestamp(dateString: string, locale: Locale) {
   });
 }
 
+async function readResponsePayload(response: Response): Promise<TriggerResponsePayload | null> {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(text) as TriggerResponsePayload;
+    } catch {
+      return { raw: text };
+    }
+  }
+
+  return { raw: text };
+}
+
+function readTriggerErrorMessage(payload: TriggerResponsePayload | null, fallback: string) {
+  if (!payload) {
+    return fallback;
+  }
+
+  if (payload.details && typeof payload.details === "object" && payload.details.error) {
+    return payload.details.error;
+  }
+
+  if (typeof payload.details === "string") {
+    return payload.details;
+  }
+
+  return payload.error ?? payload.raw ?? fallback;
+}
+
 export function RepoRadarShell({
   repos,
   username,
@@ -86,6 +157,15 @@ export function RepoRadarShell({
   collectorStatus: CollectorStatus;
 }) {
   const [locale, setLocale] = useState<Locale>("en");
+  const router = useRouter();
+  const [isSyncPending, setIsSyncPending] = useState(false);
+  const [isUnlockPending, setIsUnlockPending] = useState(false);
+  const [collectorTriggerToken, setCollectorTriggerToken] = useState("");
+  const [hasTriggerSession, setHasTriggerSession] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    tone: "success" | "warning";
+    message: string;
+  } | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") {
       return "light";
@@ -127,11 +207,138 @@ export function RepoRadarShell({
     : !collectorStatus.configured || !collectorStatus.reachable || !collectorStatus.dbReady
       ? "warning"
       : "default";
+  const canTriggerCollector = viewerMatchesCollector && collectorStatus.configured;
+  const canSyncCollector = canTriggerCollector && hasTriggerSession;
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     window.localStorage.setItem("repo-radar-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!canTriggerCollector) {
+      setHasTriggerSession(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/collector/trigger/session", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await readResponsePayload(response);
+
+        if (!cancelled) {
+          setHasTriggerSession(Boolean(payload?.authenticated && response.ok));
+        }
+      } catch {
+        if (!cancelled) {
+          setHasTriggerSession(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canTriggerCollector]);
+
+  async function handleUnlockCollector(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSyncFeedback(null);
+
+    if (!collectorTriggerToken.trim()) {
+      setSyncFeedback({
+        tone: "warning",
+        message: `${copy.syncError} ${copy.syncTokenRequired}`,
+      });
+      return;
+    }
+
+    setIsUnlockPending(true);
+
+    try {
+      const response = await fetch("/api/collector/trigger/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: collectorTriggerToken }),
+      });
+      const payload = await readResponsePayload(response);
+
+      if (!response.ok) {
+        setSyncFeedback({
+          tone: "warning",
+          message: `${copy.syncError} ${readTriggerErrorMessage(payload, copy.syncError)}`,
+        });
+        return;
+      }
+
+      setCollectorTriggerToken("");
+      setHasTriggerSession(true);
+      setSyncFeedback({
+        tone: "success",
+        message: copy.syncUnlockSuccess,
+      });
+    } catch (error) {
+      setSyncFeedback({
+        tone: "warning",
+        message: `${copy.syncError} ${error instanceof Error ? error.message : ""}`.trim(),
+      });
+    } finally {
+      setIsUnlockPending(false);
+    }
+  }
+
+  async function handleCollectorSync() {
+    if (isSyncPending || !canSyncCollector) {
+      return;
+    }
+
+    setSyncFeedback(null);
+    setIsSyncPending(true);
+
+    try {
+      const response = await fetch("/api/collector/trigger", {
+        method: "POST",
+      });
+      const payload = await readResponsePayload(response);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setHasTriggerSession(false);
+          setSyncFeedback({
+            tone: "warning",
+            message: copy.syncSessionExpired,
+          });
+          return;
+        }
+
+        setSyncFeedback({
+          tone: "warning",
+          message: `${copy.syncError} ${readTriggerErrorMessage(payload, copy.syncError)}`,
+        });
+        return;
+      }
+
+      setSyncFeedback({
+        tone: "success",
+        message: copy.syncSuccess,
+      });
+      router.refresh();
+    } catch (error) {
+      setSyncFeedback({
+        tone: "warning",
+        message: `${copy.syncError} ${error instanceof Error ? error.message : ""}`.trim(),
+      });
+    } finally {
+      setIsSyncPending(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground dark:from-[#090b13] dark:via-[#0d1220] dark:to-[#171b2d]">
@@ -246,7 +453,51 @@ export function RepoRadarShell({
                 {copy.reposWithHistory} {collectorStatus.reposWithHistory}
               </InfoPill>
             ) : null}
+            {canSyncCollector ? (
+              <button
+                type="button"
+                onClick={handleCollectorSync}
+                disabled={isSyncPending}
+                className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-blue-300"
+              >
+                {isSyncPending ? copy.syncingCollector : copy.syncCollector}
+              </button>
+            ) : null}
           </div>
+          {canTriggerCollector || syncFeedback ? (
+            <div className="mb-8 flex flex-wrap items-center gap-2">
+              {canTriggerCollector ? (
+                <InfoPill>{copy.syncReady}</InfoPill>
+              ) : null}
+              {canTriggerCollector && !hasTriggerSession ? (
+                <>
+                  <InfoPill>{copy.syncUnlockHelp}</InfoPill>
+                  <form onSubmit={handleUnlockCollector} className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                      <span>{copy.syncTokenLabel}</span>
+                      <input
+                        type="password"
+                        value={collectorTriggerToken}
+                        onChange={(event) => setCollectorTriggerToken(event.target.value)}
+                        placeholder={copy.syncTokenPlaceholder}
+                        className="h-9 rounded-full border border-border/60 bg-card/60 px-4 text-sm text-foreground outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20 dark:border-white/10 dark:bg-white/6"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={isUnlockPending}
+                      className="inline-flex h-9 items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-4 text-xs font-medium text-blue-700 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-blue-300"
+                    >
+                      {isUnlockPending ? copy.unlockingCollector : copy.unlockCollector}
+                    </button>
+                  </form>
+                </>
+              ) : null}
+              {syncFeedback ? (
+                <InfoPill tone={syncFeedback.tone}>{syncFeedback.message}</InfoPill>
+              ) : null}
+            </div>
+          ) : null}
 
           <form action="/" method="get" className="flex max-w-lg items-end gap-3">
             <div className="flex-1">
