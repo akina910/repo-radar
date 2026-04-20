@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import type { RadarRepo } from "@/components/repo-radar";
 import type {
+  CollectorSyncConfig,
   CollectorStatus,
   CollectorStatusPayload,
 } from "@/lib/collector-types";
@@ -159,6 +160,19 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
   };
 }
 
+function hasNonPlaceholderValue(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return !trimmed.startsWith("your-") && !trimmed.includes("your-collector-worker");
+}
+
 export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
   const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
 
@@ -228,6 +242,19 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       dbError: null,
     };
   }
+});
+
+export const getCollectorSyncConfig = cache(async (): Promise<CollectorSyncConfig> => {
+  const workerUrlConfigured = hasNonPlaceholderValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
+  const apiSecretConfigured = hasNonPlaceholderValue(process.env.COLLECTOR_API_SECRET);
+  const triggerTokenConfigured = hasNonPlaceholderValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+
+  return {
+    workerUrlConfigured,
+    apiSecretConfigured,
+    triggerTokenConfigured,
+    manualSyncReady: workerUrlConfigured && apiSecretConfigured && triggerTokenConfigured,
+  };
 });
 
 export const getRadarRepos = cache(async (usernameOverride?: string): Promise<RadarRepo[]> => {

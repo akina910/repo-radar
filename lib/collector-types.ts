@@ -42,3 +42,10 @@ export type CollectorStatus = {
   reposWithHistory: number | null;
   dbError: boolean | null;
 };
+
+export type CollectorSyncConfig = {
+  workerUrlConfigured: boolean;
+  apiSecretConfigured: boolean;
+  triggerTokenConfigured: boolean;
+  manualSyncReady: boolean;
+};

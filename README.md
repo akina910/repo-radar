@@ -42,9 +42,10 @@ GITHUB_TOKEN=your-github-token
 - `GITHUB_TOKEN` is optional for basic repo metadata
 - views / clones depend on GitHub traffic endpoints and may be unavailable without a token
 - `NEXT_PUBLIC_COLLECTOR_URL` enables 90-day traffic history, collector sync status, and referrer badges
-- `COLLECTOR_API_SECRET` is only needed when you want to manually trigger the collector from the verification script
+- `COLLECTOR_API_SECRET` is needed when the Next.js app or the verification script should trigger the collector
+- `COLLECTOR_TRIGGER_TOKEN` is needed when you want to unlock the browser-side `Sync collector` button safely
 - this MVP only looks at public repositories owned by one account
-- for one-click setup on Vercel, fill in `GITHUB_USERNAME` and `GITHUB_TOKEN` during the Deploy Button flow, and also set `NEXT_PUBLIC_COLLECTOR_URL` + `COLLECTOR_API_SECRET` if you want the collector verification / trigger flow to work
+- for one-click setup on Vercel, fill in `GITHUB_USERNAME` and `GITHUB_TOKEN` during the Deploy Button flow, and also set `NEXT_PUBLIC_COLLECTOR_URL` + `COLLECTOR_API_SECRET` + `COLLECTOR_TRIGGER_TOKEN` if you want the collector verification / trigger flow to work
 
 ## Collector Setup
 The Cloudflare Worker is already wired for `repo-radar-collector`. What remains is secrets + env wiring.
@@ -62,6 +63,7 @@ This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local 
 2. Add the printed values to Vercel as:
    - `NEXT_PUBLIC_COLLECTOR_URL`
    - `COLLECTOR_API_SECRET`
+   - `COLLECTOR_TRIGGER_TOKEN`
 3. Redeploy the Vercel app.
 4. Open the app and use the `Sync collector` button once to force the first collection.
 5. Verify collector health:
@@ -71,6 +73,6 @@ npm run collector:check
 npm run collector:check:trigger
 ```
 
-`collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage.  
-`collector:check:trigger` also sends `POST /api/collect` before re-reading status.  
-If you prefer to avoid local scripts after deployment, the app now exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env without exposing it to the browser.
+`collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage together with a local env checklist.
+`collector:check:trigger` also sends `POST /api/collect` before re-reading status.
+If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env and requires `COLLECTOR_TRIGGER_TOKEN` to unlock it in the browser.

@@ -45,10 +45,21 @@ function envValue(name, localEnv) {
   return process.env[name] || localEnv[name] || "";
 }
 
+function hasRealValue(value) {
+  return Boolean(value) && !value.startsWith("your-") && !value.includes("your-collector-worker");
+}
+
 async function requestJson(url, init, options = {}) {
   const response = await fetch(url, init);
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+  }
   const { allowNonOk = false } = options;
 
   if (!response.ok && !allowNonOk) {
@@ -56,6 +67,19 @@ async function requestJson(url, init, options = {}) {
   }
 
   return data;
+}
+
+function printEnvChecklist({ baseUrl, apiSecret, triggerToken }) {
+  console.log("local_env:");
+  console.log(`  NEXT_PUBLIC_COLLECTOR_URL: ${hasRealValue(baseUrl) ? "ok" : "missing"}`);
+  console.log(`  COLLECTOR_API_SECRET: ${hasRealValue(apiSecret) ? "ok" : "missing"}`);
+  console.log(`  COLLECTOR_TRIGGER_TOKEN: ${hasRealValue(triggerToken) ? "ok" : "missing"}`);
+
+  if (!hasRealValue(triggerToken)) {
+    console.log(
+      "note: COLLECTOR_TRIGGER_TOKEN is only required for the browser-side 'Sync collector' unlock flow.",
+    );
+  }
 }
 
 function printStatus(status) {
@@ -79,6 +103,7 @@ async function main() {
   const baseUrl = envValue("NEXT_PUBLIC_COLLECTOR_URL", localEnv).replace(/\/$/, "");
   const shouldTrigger = process.argv.includes("--trigger");
   const apiSecret = envValue("COLLECTOR_API_SECRET", localEnv);
+  const triggerToken = envValue("COLLECTOR_TRIGGER_TOKEN", localEnv);
 
   if (!baseUrl) {
     console.error("NEXT_PUBLIC_COLLECTOR_URL is missing. Set it in .env.local or the shell.");
@@ -86,6 +111,7 @@ async function main() {
   }
 
   console.log(`collector: ${baseUrl}`);
+  printEnvChecklist({ baseUrl, apiSecret, triggerToken });
 
   if (shouldTrigger) {
     if (!apiSecret) {

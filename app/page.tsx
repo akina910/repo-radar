@@ -1,5 +1,5 @@
 import { RepoRadarShell } from "@/components/repo-radar-shell";
-import { getCollectorStatus, getRadarRepos } from "@/lib/github";
+import { getCollectorStatus, getCollectorSyncConfig, getRadarRepos } from "@/lib/github";
 
 type HomeProps = {
   searchParams: Promise<{
@@ -15,9 +15,10 @@ export default async function Home({ searchParams }: HomeProps) {
       ? undefined
       : process.env.GITHUB_USERNAME;
   const username = requestedUsername || envUsername;
-  const [repos, collectorStatus] = await Promise.all([
+  const [repos, collectorStatus, collectorSyncConfig] = await Promise.all([
     getRadarRepos(username),
     getCollectorStatus(),
+    getCollectorSyncConfig(),
   ]);
 
   return (
@@ -25,6 +26,7 @@ export default async function Home({ searchParams }: HomeProps) {
       repos={repos}
       username={username ?? null}
       collectorStatus={collectorStatus}
+      collectorSyncConfig={collectorSyncConfig}
     />
   );
 }

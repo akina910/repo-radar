@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Moon, Search, Sun, TrendingUp } from "lucide-react";
 
 import { RepoRadar, type RadarRepo } from "@/components/repo-radar";
-import type { CollectorStatus } from "@/lib/collector-types";
+import type { CollectorStatus, CollectorSyncConfig } from "@/lib/collector-types";
 
 type Locale = "en" | "ja";
 type Theme = "light" | "dark";
@@ -35,6 +35,12 @@ const COPY = {
     syncCollector: "Sync collector",
     syncingCollector: "Syncing…",
     syncReady: "Trigger a manual sync once secrets and Vercel envs are set.",
+    syncMissingWorkerUrl:
+      "Set NEXT_PUBLIC_COLLECTOR_URL on Vercel so the app can reach the Worker.",
+    syncMissingApiSecret:
+      "Set COLLECTOR_API_SECRET on Vercel so the server can trigger the collector.",
+    syncMissingTriggerToken:
+      "Set COLLECTOR_TRIGGER_TOKEN on Vercel so browser unlock can enable manual sync.",
     syncUnlockHelp: "Manual sync is protected. Enter the trigger token to enable it in this browser.",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "Enter trigger token",
@@ -73,6 +79,12 @@ const COPY = {
     syncCollector: "Collector同期",
     syncingCollector: "同期中…",
     syncReady: "secret と Vercel env を設定したら、手動同期を一度実行できます。",
+    syncMissingWorkerUrl:
+      "アプリから Worker に到達できるよう、Vercel に NEXT_PUBLIC_COLLECTOR_URL を設定してください。",
+    syncMissingApiSecret:
+      "サーバーから collector を叩けるよう、Vercel に COLLECTOR_API_SECRET を設定してください。",
+    syncMissingTriggerToken:
+      "ブラウザで手動同期を有効化できるよう、Vercel に COLLECTOR_TRIGGER_TOKEN を設定してください。",
     syncUnlockHelp: "手動同期は保護されています。このブラウザで有効にするには trigger token を入力してください。",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "trigger token を入力",
@@ -151,10 +163,12 @@ export function RepoRadarShell({
   repos,
   username,
   collectorStatus,
+  collectorSyncConfig,
 }: {
   repos: RadarRepo[];
   username: string | null;
   collectorStatus: CollectorStatus;
+  collectorSyncConfig: CollectorSyncConfig;
 }) {
   const [locale, setLocale] = useState<Locale>("en");
   const router = useRouter();
@@ -208,7 +222,13 @@ export function RepoRadarShell({
       ? "warning"
       : "default";
   const canTriggerCollector = viewerMatchesCollector && collectorStatus.configured;
-  const canSyncCollector = canTriggerCollector && hasTriggerSession;
+  const manualSyncReady = canTriggerCollector && collectorSyncConfig.manualSyncReady;
+  const canSyncCollector = manualSyncReady && hasTriggerSession;
+  const missingSyncMessages = [
+    !collectorSyncConfig.workerUrlConfigured ? copy.syncMissingWorkerUrl : null,
+    !collectorSyncConfig.apiSecretConfigured ? copy.syncMissingApiSecret : null,
+    !collectorSyncConfig.triggerTokenConfigured ? copy.syncMissingTriggerToken : null,
+  ].filter((message) => message !== null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -216,7 +236,7 @@ export function RepoRadarShell({
   }, [theme]);
 
   useEffect(() => {
-    if (!canTriggerCollector) {
+    if (!manualSyncReady) {
       setHasTriggerSession(false);
       return;
     }
@@ -244,7 +264,7 @@ export function RepoRadarShell({
     return () => {
       cancelled = true;
     };
-  }, [canTriggerCollector]);
+  }, [manualSyncReady]);
 
   async function handleUnlockCollector(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -466,10 +486,17 @@ export function RepoRadarShell({
           </div>
           {canTriggerCollector || syncFeedback ? (
             <div className="mb-8 flex flex-wrap items-center gap-2">
-              {canTriggerCollector ? (
+              {manualSyncReady ? (
                 <InfoPill>{copy.syncReady}</InfoPill>
               ) : null}
-              {canTriggerCollector && !hasTriggerSession ? (
+              {canTriggerCollector && !manualSyncReady
+                ? missingSyncMessages.map((message) => (
+                    <InfoPill key={message} tone="warning">
+                      {message}
+                    </InfoPill>
+                  ))
+                : null}
+              {manualSyncReady && !hasTriggerSession ? (
                 <>
                   <InfoPill>{copy.syncUnlockHelp}</InfoPill>
                   <form onSubmit={handleUnlockCollector} className="flex flex-wrap items-end gap-2">
