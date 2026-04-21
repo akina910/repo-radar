@@ -138,7 +138,8 @@ function hasCollectorStatusShape(value: unknown) {
     "status" in value ||
     "owner" in value ||
     "last_collection" in value ||
-    "db_stats" in value
+    "db_stats" in value ||
+    "runtime_config" in value
   );
 }
 
@@ -146,6 +147,7 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
   const payload = isJsonRecord(data) ? data : {};
   const lastCollection = isJsonRecord(payload.last_collection) ? payload.last_collection : null;
   const dbStats = isJsonRecord(payload.db_stats) ? payload.db_stats : null;
+  const runtimeConfig = isJsonRecord(payload.runtime_config) ? payload.runtime_config : null;
 
   return {
     configuredOwner: readNullableString(payload.owner),
@@ -157,6 +159,11 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
     referrerRows: readNullableNumber(dbStats?.referrer_rows),
     reposWithHistory: readNullableNumber(dbStats?.repos_with_history),
     dbError: readNullableBoolean(dbStats?.db_error),
+    runtimeGithubUsernameConfigured: readNullableBoolean(runtimeConfig?.github_username_configured),
+    runtimeGithubTokenConfigured: readNullableBoolean(runtimeConfig?.github_token_configured),
+    runtimeApiSecretConfigured: readNullableBoolean(runtimeConfig?.api_secret_configured),
+    runtimeD1BindingConfigured: readNullableBoolean(runtimeConfig?.d1_binding_configured),
+    runtimeKvBindingConfigured: readNullableBoolean(runtimeConfig?.kv_binding_configured),
   };
 }
 
@@ -189,6 +196,11 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       referrerRows: null,
       reposWithHistory: null,
       dbError: null,
+      runtimeGithubUsernameConfigured: null,
+      runtimeGithubTokenConfigured: null,
+      runtimeApiSecretConfigured: null,
+      runtimeD1BindingConfigured: null,
+      runtimeKvBindingConfigured: null,
     };
   }
 
@@ -219,6 +231,11 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
         referrerRows: null,
         reposWithHistory: null,
         dbError: null,
+        runtimeGithubUsernameConfigured: null,
+        runtimeGithubTokenConfigured: null,
+        runtimeApiSecretConfigured: null,
+        runtimeD1BindingConfigured: null,
+        runtimeKvBindingConfigured: null,
       };
     }
 
@@ -240,6 +257,11 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       referrerRows: null,
       reposWithHistory: null,
       dbError: null,
+      runtimeGithubUsernameConfigured: null,
+      runtimeGithubTokenConfigured: null,
+      runtimeApiSecretConfigured: null,
+      runtimeD1BindingConfigured: null,
+      runtimeKvBindingConfigured: null,
     };
   }
 });

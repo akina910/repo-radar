@@ -41,6 +41,12 @@ const COPY = {
       "Set COLLECTOR_API_SECRET on Vercel so the server can trigger the collector.",
     syncMissingTriggerToken:
       "Set COLLECTOR_TRIGGER_TOKEN on Vercel so browser unlock can enable manual sync.",
+    syncMissingWorkerGithubUsername:
+      "Worker runtime is missing GITHUB_USERNAME. Add it in worker/wrangler.toml [vars].",
+    syncMissingWorkerGithubToken:
+      "Worker runtime is missing GITHUB_TOKEN secret. Run: wrangler secret put GITHUB_TOKEN",
+    syncMissingWorkerApiSecret:
+      "Worker runtime is missing API_SECRET secret. Run: wrangler secret put API_SECRET",
     syncUnlockHelp: "Manual sync is protected. Enter the trigger token to enable it in this browser.",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "Enter trigger token",
@@ -85,6 +91,12 @@ const COPY = {
       "サーバーから collector を叩けるよう、Vercel に COLLECTOR_API_SECRET を設定してください。",
     syncMissingTriggerToken:
       "ブラウザで手動同期を有効化できるよう、Vercel に COLLECTOR_TRIGGER_TOKEN を設定してください。",
+    syncMissingWorkerGithubUsername:
+      "Worker の GITHUB_USERNAME が未設定です。worker/wrangler.toml の [vars] を確認してください。",
+    syncMissingWorkerGithubToken:
+      "Worker の GITHUB_TOKEN secret が未設定です。`wrangler secret put GITHUB_TOKEN` を実行してください。",
+    syncMissingWorkerApiSecret:
+      "Worker の API_SECRET secret が未設定です。`wrangler secret put API_SECRET` を実行してください。",
     syncUnlockHelp: "手動同期は保護されています。このブラウザで有効にするには trigger token を入力してください。",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "trigger token を入力",
@@ -228,6 +240,9 @@ export function RepoRadarShell({
     !collectorSyncConfig.workerUrlConfigured ? copy.syncMissingWorkerUrl : null,
     !collectorSyncConfig.apiSecretConfigured ? copy.syncMissingApiSecret : null,
     !collectorSyncConfig.triggerTokenConfigured ? copy.syncMissingTriggerToken : null,
+    collectorStatus.runtimeGithubUsernameConfigured === false ? copy.syncMissingWorkerGithubUsername : null,
+    collectorStatus.runtimeGithubTokenConfigured === false ? copy.syncMissingWorkerGithubToken : null,
+    collectorStatus.runtimeApiSecretConfigured === false ? copy.syncMissingWorkerApiSecret : null,
   ].filter((message) => message !== null);
 
   useEffect(() => {

@@ -83,18 +83,65 @@ function printEnvChecklist({ baseUrl, apiSecret, triggerToken }) {
 }
 
 function printStatus(status) {
+  if (!status || typeof status !== "object") {
+    console.log("status: invalid payload");
+    console.log(`raw: ${String(status)}`);
+    return;
+  }
+
   console.log(`status: ${status.status}`);
   console.log(`owner: ${status.owner ?? "-"}`);
   console.log(`last_collection: ${status.last_collection?.collected_at ?? "-"}`);
   console.log(`repo_count: ${status.last_collection?.repo_count ?? "-"}`);
-  console.log(`db_ready: ${status.db_stats.ready}`);
-  console.log(`latest_snapshot_date: ${status.db_stats.latest_snapshot_date ?? "-"}`);
-  console.log(`snapshots_count: ${status.db_stats.snapshots_count}`);
-  console.log(`repos_with_history: ${status.db_stats.repos_with_history}`);
-  console.log(`referrer_rows: ${status.db_stats.referrer_rows}`);
+  console.log(`db_ready: ${status.db_stats?.ready ?? "-"}`);
+  console.log(`latest_snapshot_date: ${status.db_stats?.latest_snapshot_date ?? "-"}`);
+  console.log(`snapshots_count: ${status.db_stats?.snapshots_count ?? "-"}`);
+  console.log(`repos_with_history: ${status.db_stats?.repos_with_history ?? "-"}`);
+  console.log(`referrer_rows: ${status.db_stats?.referrer_rows ?? "-"}`);
 
-  if (status.db_stats.db_error) {
+  if (status.db_stats?.db_error) {
     console.log("db_error: true");
+  }
+
+  if (status.runtime_config) {
+    console.log("runtime_config:");
+    console.log(
+      `  github_username_configured: ${status.runtime_config.github_username_configured ? "ok" : "missing"}`,
+    );
+    console.log(
+      `  github_token_configured: ${status.runtime_config.github_token_configured ? "ok" : "missing"}`,
+    );
+    console.log(
+      `  api_secret_configured: ${status.runtime_config.api_secret_configured ? "ok" : "missing"}`,
+    );
+    console.log(
+      `  d1_binding_configured: ${status.runtime_config.d1_binding_configured ? "ok" : "missing"}`,
+    );
+    console.log(
+      `  kv_binding_configured: ${status.runtime_config.kv_binding_configured ? "ok" : "missing"}`,
+    );
+  }
+}
+
+function printActionableHints(status) {
+  if (!status || typeof status !== "object") {
+    return;
+  }
+
+  const runtime = status.runtime_config ?? {};
+  const needsWorkerGithubToken = runtime.github_token_configured === false;
+  const needsWorkerApiSecret = runtime.api_secret_configured === false;
+
+  if (!needsWorkerGithubToken && !needsWorkerApiSecret) {
+    return;
+  }
+
+  console.log("next_actions:");
+  if (needsWorkerGithubToken) {
+    console.log("  - cd worker && wrangler secret put GITHUB_TOKEN");
+  }
+  if (needsWorkerApiSecret) {
+    console.log("  - cd worker && wrangler secret put API_SECRET");
   }
 }
 
@@ -140,6 +187,7 @@ async function main() {
   );
 
   printStatus(status);
+  printActionableHints(status);
 }
 
 main().catch((error) => {

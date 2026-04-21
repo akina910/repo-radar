@@ -73,9 +73,45 @@ type CollectorDbStats = {
   db_error: boolean;
 };
 
+type RuntimeConfig = {
+  github_username_configured: boolean;
+  github_token_configured: boolean;
+  api_secret_configured: boolean;
+  d1_binding_configured: boolean;
+  kv_binding_configured: boolean;
+};
+
+function hasConfiguredValue(value: string | undefined | null) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function readRuntimeConfig(env: Env): RuntimeConfig {
+  return {
+    github_username_configured: hasConfiguredValue(env.GITHUB_USERNAME),
+    github_token_configured: hasConfiguredValue(env.GITHUB_TOKEN),
+    api_secret_configured: hasConfiguredValue(env.API_SECRET),
+    d1_binding_configured:
+      typeof env.repo_radar_db === "object" &&
+      env.repo_radar_db !== null &&
+      typeof env.repo_radar_db.prepare === "function",
+    kv_binding_configured:
+      typeof env.repo_radar_kv === "object" &&
+      env.repo_radar_kv !== null &&
+      typeof env.repo_radar_kv.get === "function",
+  };
+}
+
 async function collectAll(env: Env) {
   const username = env.GITHUB_USERNAME;
   const token = env.GITHUB_TOKEN;
+
+  if (!hasConfiguredValue(username)) {
+    throw new Error("Missing GITHUB_USERNAME");
+  }
+
+  if (!hasConfiguredValue(token)) {
+    throw new Error("Missing GITHUB_TOKEN");
+  }
 
   const repos = await ghFetch<GHRepo[]>(
     `/users/${username}/repos?per_page=100&type=owner&sort=updated`,
@@ -350,7 +386,19 @@ function decodeRepoName(value: string) {
 const worker = {
   // cron trigger
   async scheduled(_event: ScheduledEvent, env: Env) {
-    await collectAll(env);
+    const runtimeConfig = readRuntimeConfig(env);
+
+    if (!runtimeConfig.github_username_configured || !runtimeConfig.github_token_configured) {
+      console.warn("scheduled collect skipped: missing GitHub credentials", runtimeConfig);
+      return;
+    }
+
+    try {
+      await collectAll(env);
+    } catch (error) {
+      console.error("scheduled collect failed", error);
+      throw error;
+    }
   },
 
   // HTTP handler
@@ -362,9 +410,26 @@ const worker = {
 
     // POST /api/collect (manual trigger, requires X-API-Secret)
     if (request.method === "POST" && path === "/api/collect") {
+      const runtimeConfig = readRuntimeConfig(env);
+
+      if (!runtimeConfig.api_secret_configured) {
+        return json({ error: "Collector API secret is not configured." }, 503);
+      }
+
       if (request.headers.get("X-API-Secret") !== env.API_SECRET) {
         return json({ error: "Unauthorized" }, 401);
       }
+
+      if (!runtimeConfig.github_username_configured || !runtimeConfig.github_token_configured) {
+        return json(
+          {
+            error: "Collector runtime is missing GitHub credentials.",
+            runtime_config: runtimeConfig,
+          },
+          503,
+        );
+      }
+
       const result = await collectAll(env);
       return json(result);
     }
@@ -393,17 +458,40 @@ const worker = {
 
     // GET /api/status
     if (path === "/api/status") {
+      const runtimeConfig = readRuntimeConfig(env);
       const [last, dbStats] = await Promise.all([
         env.repo_radar_kv.get("last_collection"),
         getDbStats(env),
       ]);
-      const status = dbStats.ready ? "ok" : "degraded";
+      let parsedLastCollection: unknown = null;
+
+      if (last) {
+        try {
+          parsedLastCollection = JSON.parse(last);
+        } catch {
+          parsedLastCollection = {
+            parse_error: true,
+            raw: last,
+          };
+        }
+      }
+
+      const status =
+        dbStats.ready &&
+        runtimeConfig.github_username_configured &&
+        runtimeConfig.github_token_configured &&
+        runtimeConfig.api_secret_configured &&
+        runtimeConfig.d1_binding_configured &&
+        runtimeConfig.kv_binding_configured
+          ? "ok"
+          : "degraded";
       return json({
         status,
         owner: env.GITHUB_USERNAME ?? null,
-        last_collection: last ? JSON.parse(last) : null,
+        last_collection: parsedLastCollection,
         db_stats: dbStats,
-      }, dbStats.ready ? 200 : 503);
+        runtime_config: runtimeConfig,
+      }, status === "ok" ? 200 : 503);
     }
 
     return json({ error: "Not found" }, 404);

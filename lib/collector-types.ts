@@ -27,6 +27,13 @@ export type CollectorStatusPayload = {
     repos_with_history?: number;
     db_error?: boolean;
   } | null;
+  runtime_config?: {
+    github_username_configured?: boolean;
+    github_token_configured?: boolean;
+    api_secret_configured?: boolean;
+    d1_binding_configured?: boolean;
+    kv_binding_configured?: boolean;
+  } | null;
 };
 
 export type CollectorStatus = {
@@ -41,6 +48,11 @@ export type CollectorStatus = {
   referrerRows: number | null;
   reposWithHistory: number | null;
   dbError: boolean | null;
+  runtimeGithubUsernameConfigured: boolean | null;
+  runtimeGithubTokenConfigured: boolean | null;
+  runtimeApiSecretConfigured: boolean | null;
+  runtimeD1BindingConfigured: boolean | null;
+  runtimeKvBindingConfigured: boolean | null;
 };
 
 export type CollectorSyncConfig = {

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "collector:check": "node scripts/check-collector.mjs",
-    "collector:check:trigger": "node scripts/check-collector.mjs --trigger"
+    "collector:check:trigger": "node scripts/check-collector.mjs --trigger",
+    "collector:push:vercel-env": "bash scripts/push-vercel-collector-env.sh"
   },
   "dependencies": {
     "lucide-react": "^0.487.0",

@@ -59,11 +59,14 @@ bash scripts/setup-collector-secrets.sh
 This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local `.env.local` with:
 - `NEXT_PUBLIC_COLLECTOR_URL`
 - `COLLECTOR_API_SECRET`
+- `COLLECTOR_TRIGGER_TOKEN`
 
-2. Add the printed values to Vercel as:
-   - `NEXT_PUBLIC_COLLECTOR_URL`
-   - `COLLECTOR_API_SECRET`
-   - `COLLECTOR_TRIGGER_TOKEN`
+2. Push collector env values to Vercel from `.env.local`:
+
+```bash
+npm run collector:push:vercel-env
+```
+
 3. Redeploy the Vercel app.
 4. Open the app and use the `Sync collector` button once to force the first collection.
 5. Verify collector health:
@@ -75,4 +78,5 @@ npm run collector:check:trigger
 
 `collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage together with a local env checklist.
 `collector:check:trigger` also sends `POST /api/collect` before re-reading status.
+If Worker secrets are missing, `collector:check` prints concrete `wrangler secret put ...` commands.
 If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env and requires `COLLECTOR_TRIGGER_TOKEN` to unlock it in the browser.
