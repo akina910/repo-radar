@@ -50,6 +50,32 @@ GITHUB_TOKEN=your-github-token
 ## Collector Setup
 The Cloudflare Worker is already wired for `repo-radar-collector`. What remains is secrets + env wiring.
 
+### Fast path (recommended)
+Run the full bootstrap flow:
+
+```bash
+npm run collector:bootstrap
+```
+
+This runs:
+- `scripts/setup-collector-secrets.sh` (uploads Worker secrets + writes local `.env.local`)
+- `scripts/push-vercel-collector-env.sh` (syncs collector env vars to Vercel)
+- optional `vercel --prod`
+- optional `npm run collector:check:trigger`
+
+Semi non-interactive execution (`deploy/check` prompts are auto-approved; Step 1 secret input is still interactive):
+
+```bash
+npm run collector:bootstrap -- --yes
+```
+
+Skip specific steps when needed:
+
+```bash
+npm run collector:bootstrap -- --skip-deploy --skip-check
+```
+
+### Manual path
 1. Upload Worker secrets in one pass:
 
 ```bash
