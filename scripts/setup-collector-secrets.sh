@@ -71,27 +71,42 @@ upsert_env_value() {
   mv "$tmp" "$file"
 }
 
-printf "GitHub classic PAT (repo scope): "
-read -r -s GITHUB_TOKEN
-printf "\n"
+GITHUB_TOKEN="${COLLECTOR_GITHUB_TOKEN:-}"
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  printf "GitHub classic PAT (repo scope): "
+  read -r -s GITHUB_TOKEN
+  printf "\n"
+else
+  echo "[using COLLECTOR_GITHUB_TOKEN from environment]"
+fi
 
 if [[ -z "$GITHUB_TOKEN" ]]; then
   echo "GITHUB_TOKEN is required."
   exit 1
 fi
 
-printf "API_SECRET (leave blank to auto-generate): "
-read -r -s API_SECRET
-printf "\n"
+API_SECRET="${COLLECTOR_API_SECRET:-}"
+if [[ -z "$API_SECRET" ]]; then
+  printf "API_SECRET (leave blank to auto-generate): "
+  read -r -s API_SECRET
+  printf "\n"
+else
+  echo "[using COLLECTOR_API_SECRET from environment]"
+fi
 
 if [[ -z "$API_SECRET" ]]; then
   API_SECRET="$(openssl rand -hex 32)"
   echo "Generated API_SECRET."
 fi
 
-printf "COLLECTOR_TRIGGER_TOKEN (leave blank to auto-generate): "
-read -r -s COLLECTOR_TRIGGER_TOKEN
-printf "\n"
+COLLECTOR_TRIGGER_TOKEN="${COLLECTOR_TRIGGER_TOKEN:-}"
+if [[ -z "$COLLECTOR_TRIGGER_TOKEN" ]]; then
+  printf "COLLECTOR_TRIGGER_TOKEN (leave blank to auto-generate): "
+  read -r -s COLLECTOR_TRIGGER_TOKEN
+  printf "\n"
+else
+  echo "[using COLLECTOR_TRIGGER_TOKEN from environment]"
+fi
 
 if [[ -z "$COLLECTOR_TRIGGER_TOKEN" ]]; then
   COLLECTOR_TRIGGER_TOKEN="$(openssl rand -hex 32)"

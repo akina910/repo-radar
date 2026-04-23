@@ -10,6 +10,7 @@
     "collector:bootstrap": "bash scripts/bootstrap-collector.sh",
     "collector:check": "node scripts/check-collector.mjs",
     "collector:check:trigger": "node scripts/check-collector.mjs --trigger",
+    "collector:check:vercel-env": "bash scripts/check-vercel-collector-env.sh",
     "collector:push:vercel-env": "bash scripts/push-vercel-collector-env.sh"
   },
   "dependencies": {

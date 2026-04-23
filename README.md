@@ -2,7 +2,7 @@
 
 A small dashboard for tracking how your public GitHub repositories are doing.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fakina910%2Frepo-radar&project-name=repo-radar&env=GITHUB_USERNAME,GITHUB_TOKEN,NEXT_PUBLIC_COLLECTOR_URL,COLLECTOR_API_SECRET)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fakina910%2Frepo-radar&project-name=repo-radar&env=GITHUB_USERNAME,GITHUB_TOKEN,NEXT_PUBLIC_COLLECTOR_URL,COLLECTOR_API_SECRET,COLLECTOR_TRIGGER_TOKEN)
 
 ## What it does
 - loads your public GitHub repositories
@@ -60,6 +60,7 @@ npm run collector:bootstrap
 This runs:
 - `scripts/setup-collector-secrets.sh` (uploads Worker secrets + writes local `.env.local`)
 - `scripts/push-vercel-collector-env.sh` (syncs collector env vars to Vercel)
+- `scripts/check-vercel-collector-env.sh` (verifies the 3 collector env vars exist on Vercel)
 - optional `vercel --prod`
 - optional `npm run collector:check:trigger`
 
@@ -67,6 +68,15 @@ Semi non-interactive execution (`deploy/check` prompts are auto-approved; Step 1
 
 ```bash
 npm run collector:bootstrap -- --yes
+```
+
+Fully non-interactive secret upload is also supported by exporting values first:
+
+```bash
+COLLECTOR_GITHUB_TOKEN=ghp_xxx \
+COLLECTOR_API_SECRET="$(openssl rand -hex 32)" \
+COLLECTOR_TRIGGER_TOKEN="$(openssl rand -hex 32)" \
+bash scripts/setup-collector-secrets.sh
 ```
 
 Skip specific steps when needed:
@@ -91,6 +101,12 @@ This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local 
 
 ```bash
 npm run collector:push:vercel-env
+```
+
+2.5. Verify Vercel env wiring before redeploy:
+
+```bash
+npm run collector:check:vercel-env
 ```
 
 3. Redeploy the Vercel app.

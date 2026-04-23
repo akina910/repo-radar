@@ -131,17 +131,22 @@ function printActionableHints(status) {
   const runtime = status.runtime_config ?? {};
   const needsWorkerGithubToken = runtime.github_token_configured === false;
   const needsWorkerApiSecret = runtime.api_secret_configured === false;
+  const actions = [];
+  if (needsWorkerGithubToken) {
+    actions.push("cd worker && wrangler secret put GITHUB_TOKEN");
+  }
+  if (needsWorkerApiSecret) {
+    actions.push("cd worker && wrangler secret put API_SECRET");
+  }
+  actions.push("npm run collector:check:vercel-env");
 
-  if (!needsWorkerGithubToken && !needsWorkerApiSecret) {
+  if (actions.length === 0) {
     return;
   }
 
   console.log("next_actions:");
-  if (needsWorkerGithubToken) {
-    console.log("  - cd worker && wrangler secret put GITHUB_TOKEN");
-  }
-  if (needsWorkerApiSecret) {
-    console.log("  - cd worker && wrangler secret put API_SECRET");
+  for (const action of actions) {
+    console.log(`  - ${action}`);
   }
 }
 
