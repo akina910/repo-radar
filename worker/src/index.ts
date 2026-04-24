@@ -19,6 +19,8 @@ export interface Env {
 }
 
 const GH_BASE = "https://api.github.com";
+const GITHUB_REPOS_PAGE_SIZE = 100;
+const GITHUB_REPOS_MAX_PAGES = 20;
 
 function ghHeaders(token: string) {
   return {
@@ -32,6 +34,33 @@ async function ghFetch<T>(path: string, token: string): Promise<T | null> {
   const res = await fetch(`${GH_BASE}${path}`, { headers: ghHeaders(token) });
   if (!res.ok) return null;
   return res.json() as Promise<T>;
+}
+
+async function ghFetchOwnerRepos(owner: string, token: string): Promise<GHRepo[] | null> {
+  const allRepos: GHRepo[] = [];
+
+  for (let page = 1; page <= GITHUB_REPOS_MAX_PAGES; page += 1) {
+    const pageRepos = await ghFetch<GHRepo[]>(
+      `/users/${owner}/repos?per_page=${GITHUB_REPOS_PAGE_SIZE}&type=owner&sort=updated&page=${page}`,
+      token,
+    );
+
+    if (!pageRepos) {
+      return null;
+    }
+
+    if (pageRepos.length === 0) {
+      break;
+    }
+
+    allRepos.push(...pageRepos);
+
+    if (pageRepos.length < GITHUB_REPOS_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return allRepos;
 }
 
 type GHRepo = {
@@ -113,10 +142,7 @@ async function collectAll(env: Env) {
     throw new Error("Missing GITHUB_TOKEN");
   }
 
-  const repos = await ghFetch<GHRepo[]>(
-    `/users/${username}/repos?per_page=100&type=owner&sort=updated`,
-    token,
-  );
+  const repos = await ghFetchOwnerRepos(username, token);
   if (!repos) throw new Error("Failed to fetch repo list");
 
   const publicRepos = repos.filter((r) => !r.fork);

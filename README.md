@@ -6,6 +6,7 @@ A small dashboard for tracking how your public GitHub repositories are doing.
 
 ## What it does
 - loads your public GitHub repositories
+- paginates GitHub repo listing so accounts with 100+ repos are fully covered (up to 2,000 repos)
 - shows stars, forks, open issues, last update time
 - optionally shows views, peak daily views, and clones from GitHub traffic endpoints
 - surfaces top referrers when the Cloudflare collector is enabled

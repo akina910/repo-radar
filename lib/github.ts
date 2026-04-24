@@ -50,6 +50,8 @@ type CollectorRepo = {
 type JsonRecord = Record<string, unknown>;
 
 const API_BASE = "https://api.github.com";
+const GITHUB_REPOS_PAGE_SIZE = 100;
+const GITHUB_REPOS_MAX_PAGES = 20;
 
 function getHeaders() {
   const token = process.env.GITHUB_TOKEN;
@@ -71,6 +73,28 @@ async function fetchJson<T>(path: string): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+async function fetchGitHubOwnerRepos(owner: string): Promise<GitHubRepo[]> {
+  const allRepos: GitHubRepo[] = [];
+
+  for (let page = 1; page <= GITHUB_REPOS_MAX_PAGES; page += 1) {
+    const pageRepos = await fetchJson<GitHubRepo[]>(
+      `/users/${owner}/repos?per_page=${GITHUB_REPOS_PAGE_SIZE}&type=owner&sort=updated&direction=desc&page=${page}`,
+    );
+
+    if (pageRepos.length === 0) {
+      break;
+    }
+
+    allRepos.push(...pageRepos);
+
+    if (pageRepos.length < GITHUB_REPOS_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return allRepos;
 }
 
 async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones") {
@@ -291,10 +315,8 @@ export const getRadarRepos = cache(async (usernameOverride?: string): Promise<Ra
     return [];
   }
 
-  // Fetch repo list from GitHub (always needed for full metadata + id)
-  const repos = await fetchJson<GitHubRepo[]>(
-    `/users/${username}/repos?per_page=100&type=owner&sort=updated&direction=desc`,
-  );
+  // Fetch the full owner repo list (paginated, up to max page guard).
+  const repos = await fetchGitHubOwnerRepos(username);
 
   const publicRepos = repos.filter((repo) => !repo.fork);
 
