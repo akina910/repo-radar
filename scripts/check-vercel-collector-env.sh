@@ -5,8 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REQUIRED_KEYS=(
   "NEXT_PUBLIC_COLLECTOR_URL"
   "COLLECTOR_API_SECRET"
-  "COLLECTOR_TRIGGER_TOKEN"
 )
+OPTIONAL_KEYS=("COLLECTOR_TRIGGER_TOKEN")
 TARGETS=("production" "preview" "development")
 TMP_DIR="$(mktemp -d)"
 
@@ -60,10 +60,19 @@ for target in "${TARGETS[@]}"; do
       overall_ok=false
     fi
   done
+
+  for key in "${OPTIONAL_KEYS[@]}"; do
+    value="$(read_env_value "$env_file" "$key")"
+    if [[ -n "$value" ]]; then
+      echo "  - ${key}: ok"
+    else
+      echo "  - ${key}: optional (fallback to COLLECTOR_API_SECRET)"
+    fi
+  done
 done
 
 if [[ "$overall_ok" == "true" ]]; then
-  echo "All required collector envs are present in Vercel."
+  echo "Required collector envs are present in Vercel."
   exit 0
 fi
 

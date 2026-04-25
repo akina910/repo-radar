@@ -48,11 +48,6 @@ if ! has_real_value "$COLLECTOR_API_SECRET"; then
   exit 1
 fi
 
-if ! has_real_value "$COLLECTOR_TRIGGER_TOKEN"; then
-  echo "COLLECTOR_TRIGGER_TOKEN is missing or placeholder in $ENV_FILE"
-  exit 1
-fi
-
 set_vercel_env() {
   local key="$1"
   local value="$2"
@@ -69,9 +64,18 @@ echo "Applying collector env vars to Vercel (production / preview / development)
 for target in production preview development; do
   set_vercel_env "NEXT_PUBLIC_COLLECTOR_URL" "$NEXT_PUBLIC_COLLECTOR_URL" "$target"
   set_vercel_env "COLLECTOR_API_SECRET" "$COLLECTOR_API_SECRET" "$target"
-  set_vercel_env "COLLECTOR_TRIGGER_TOKEN" "$COLLECTOR_TRIGGER_TOKEN" "$target"
+  if has_real_value "$COLLECTOR_TRIGGER_TOKEN"; then
+    set_vercel_env "COLLECTOR_TRIGGER_TOKEN" "$COLLECTOR_TRIGGER_TOKEN" "$target"
+  else
+    vercel env rm "COLLECTOR_TRIGGER_TOKEN" "$target" --yes >/dev/null 2>&1 || true
+    echo "removed COLLECTOR_TRIGGER_TOKEN (${target})"
+  fi
 done
 
 echo
+if ! has_real_value "$COLLECTOR_TRIGGER_TOKEN"; then
+  echo "COLLECTOR_TRIGGER_TOKEN was not set in $ENV_FILE."
+  echo "Manual sync will fall back to COLLECTOR_API_SECRET as browser unlock token."
+fi
 echo "Done. Next step:"
 echo "  vercel --prod"

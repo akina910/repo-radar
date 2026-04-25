@@ -293,12 +293,20 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
 export const getCollectorSyncConfig = cache(async (): Promise<CollectorSyncConfig> => {
   const workerUrlConfigured = hasNonPlaceholderValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   const apiSecretConfigured = hasNonPlaceholderValue(process.env.COLLECTOR_API_SECRET);
-  const triggerTokenConfigured = hasNonPlaceholderValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+  const hasDedicatedTriggerToken = hasNonPlaceholderValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+  const hasFallbackTriggerToken = !hasDedicatedTriggerToken && apiSecretConfigured;
+  const triggerTokenConfigured = hasDedicatedTriggerToken || hasFallbackTriggerToken;
+  const triggerTokenSource = hasDedicatedTriggerToken
+    ? "dedicated"
+    : hasFallbackTriggerToken
+      ? "api_secret_fallback"
+      : "missing";
 
   return {
     workerUrlConfigured,
     apiSecretConfigured,
     triggerTokenConfigured,
+    triggerTokenSource,
     manualSyncReady: workerUrlConfigured && apiSecretConfigured && triggerTokenConfigured,
   };
 });

@@ -44,9 +44,9 @@ GITHUB_TOKEN=your-github-token
 - views / clones depend on GitHub traffic endpoints and may be unavailable without a token
 - `NEXT_PUBLIC_COLLECTOR_URL` enables 90-day traffic history, collector sync status, and referrer badges
 - `COLLECTOR_API_SECRET` is needed when the Next.js app or the verification script should trigger the collector
-- `COLLECTOR_TRIGGER_TOKEN` is needed when you want to unlock the browser-side `Sync collector` button safely
+- `COLLECTOR_TRIGGER_TOKEN` is optional (if omitted, browser unlock falls back to `COLLECTOR_API_SECRET`)
 - this MVP only looks at public repositories owned by one account
-- for one-click setup on Vercel, fill in `GITHUB_USERNAME` and `GITHUB_TOKEN` during the Deploy Button flow, and also set `NEXT_PUBLIC_COLLECTOR_URL` + `COLLECTOR_API_SECRET` + `COLLECTOR_TRIGGER_TOKEN` if you want the collector verification / trigger flow to work
+- for one-click setup on Vercel, fill in `GITHUB_USERNAME` and `GITHUB_TOKEN` during the Deploy Button flow, and also set `NEXT_PUBLIC_COLLECTOR_URL` + `COLLECTOR_API_SECRET` (optionally `COLLECTOR_TRIGGER_TOKEN`) if you want the collector verification / trigger flow to work
 
 ## Collector Setup
 The Cloudflare Worker is already wired for `repo-radar-collector`. What remains is secrets + env wiring.
@@ -61,7 +61,7 @@ npm run collector:bootstrap
 This runs:
 - `scripts/setup-collector-secrets.sh` (uploads Worker secrets + writes local `.env.local`)
 - `scripts/push-vercel-collector-env.sh` (syncs collector env vars to Vercel)
-- `scripts/check-vercel-collector-env.sh` (verifies the 3 collector env vars exist on Vercel)
+- `scripts/check-vercel-collector-env.sh` (verifies required collector env vars on Vercel; `COLLECTOR_TRIGGER_TOKEN` is optional)
 - optional `vercel --prod`
 - optional `npm run collector:check:trigger`
 
@@ -97,7 +97,7 @@ This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local 
 - `GITHUB_USERNAME` (synced from `worker/wrangler.toml` when configured)
 - `NEXT_PUBLIC_COLLECTOR_URL`
 - `COLLECTOR_API_SECRET`
-- `COLLECTOR_TRIGGER_TOKEN`
+- `COLLECTOR_TRIGGER_TOKEN` (optional)
 
 2. Push collector env values to Vercel from `.env.local`:
 
@@ -125,4 +125,4 @@ npm run collector:check:trigger
 `collector:check:offline` skips network calls and validates only local `.env.local` + `worker/wrangler.toml` wiring (good for preflight before secrets/env are fully connected).
 `collector:check:trigger` also sends `POST /api/collect` before re-reading status.
 If Worker secrets are missing, `collector:check` prints concrete `wrangler secret put ...` commands.
-If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env and requires `COLLECTOR_TRIGGER_TOKEN` to unlock it in the browser.
+If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env. Browser unlock uses `COLLECTOR_TRIGGER_TOKEN` when present, and falls back to `COLLECTOR_API_SECRET` when omitted.

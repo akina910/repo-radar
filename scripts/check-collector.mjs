@@ -107,15 +107,19 @@ async function requestJson(url, init, options = {}) {
 }
 
 function printEnvChecklist({ baseUrl, apiSecret, triggerToken, githubUsername }) {
+  const triggerTokenEffective = hasRealValue(triggerToken) || hasRealValue(apiSecret);
+
   console.log("local_env:");
   console.log(`  GITHUB_USERNAME: ${hasRealValue(githubUsername) ? "ok" : "missing"}`);
   console.log(`  NEXT_PUBLIC_COLLECTOR_URL: ${hasRealValue(baseUrl) ? "ok" : "missing"}`);
   console.log(`  COLLECTOR_API_SECRET: ${hasRealValue(apiSecret) ? "ok" : "missing"}`);
-  console.log(`  COLLECTOR_TRIGGER_TOKEN: ${hasRealValue(triggerToken) ? "ok" : "missing"}`);
+  console.log(
+    `  COLLECTOR_TRIGGER_TOKEN: ${hasRealValue(triggerToken) ? "ok" : triggerTokenEffective ? "optional (fallback to COLLECTOR_API_SECRET)" : "missing"}`,
+  );
 
-  if (!hasRealValue(triggerToken)) {
+  if (!hasRealValue(triggerToken) && triggerTokenEffective) {
     console.log(
-      "note: COLLECTOR_TRIGGER_TOKEN is only required for the browser-side 'Sync collector' unlock flow.",
+      "note: browser-side 'Sync collector' unlock uses COLLECTOR_API_SECRET fallback when COLLECTOR_TRIGGER_TOKEN is missing.",
     );
   }
 }
@@ -182,13 +186,12 @@ function printActionableHints({
   status,
   baseUrl,
   apiSecret,
-  triggerToken,
   githubUsername,
   wrangler,
 }) {
   const actions = [];
 
-  if (!hasRealValue(baseUrl) || !hasRealValue(apiSecret) || !hasRealValue(triggerToken)) {
+  if (!hasRealValue(baseUrl) || !hasRealValue(apiSecret)) {
     actions.push("bash scripts/setup-collector-secrets.sh");
   }
 
@@ -266,7 +269,6 @@ async function main() {
       status: null,
       baseUrl,
       apiSecret,
-      triggerToken,
       githubUsername,
       wrangler,
     });
@@ -307,7 +309,6 @@ async function main() {
         status: null,
         baseUrl,
         apiSecret,
-        triggerToken,
         githubUsername,
         wrangler,
       });
@@ -331,7 +332,6 @@ async function main() {
       status,
       baseUrl,
       apiSecret,
-      triggerToken,
       githubUsername,
       wrangler,
     });
@@ -342,7 +342,6 @@ async function main() {
       status: null,
       baseUrl,
       apiSecret,
-      triggerToken,
       githubUsername,
       wrangler,
     });

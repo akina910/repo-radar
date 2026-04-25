@@ -3,6 +3,31 @@ import { NextResponse } from "next/server";
 
 const TRIGGER_SESSION_COOKIE = "collector-trigger-session";
 
+function hasNonPlaceholderValue(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return !trimmed.startsWith("your-") && !trimmed.includes("your-collector-worker");
+}
+
+function readConfiguredTriggerToken() {
+  const dedicatedToken = process.env.COLLECTOR_TRIGGER_TOKEN?.trim() ?? "";
+  if (hasNonPlaceholderValue(dedicatedToken)) {
+    return dedicatedToken;
+  }
+
+  // Keep manual sync workable with only two env vars:
+  // NEXT_PUBLIC_COLLECTOR_URL + COLLECTOR_API_SECRET.
+  const fallbackToken = process.env.COLLECTOR_API_SECRET?.trim() ?? "";
+  return hasNonPlaceholderValue(fallbackToken) ? fallbackToken : "";
+}
+
 function readJsonSafely(text: string) {
   if (!text) {
     return null;
@@ -16,7 +41,7 @@ function readJsonSafely(text: string) {
 }
 
 async function requireCollectorTriggerAuth(request: Request) {
-  const triggerToken = process.env.COLLECTOR_TRIGGER_TOKEN?.trim();
+  const triggerToken = readConfiguredTriggerToken();
 
   if (!triggerToken) {
     return NextResponse.json(

@@ -59,5 +59,6 @@ export type CollectorSyncConfig = {
   workerUrlConfigured: boolean;
   apiSecretConfigured: boolean;
   triggerTokenConfigured: boolean;
+  triggerTokenSource: "dedicated" | "api_secret_fallback" | "missing";
   manualSyncReady: boolean;
 };

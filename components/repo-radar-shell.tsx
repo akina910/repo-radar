@@ -35,6 +35,8 @@ const COPY = {
     syncCollector: "Sync collector",
     syncingCollector: "Syncing…",
     syncReady: "Trigger a manual sync once secrets and Vercel envs are set.",
+    syncUsingApiSecretFallback:
+      "Using COLLECTOR_API_SECRET as the trigger token fallback. Set COLLECTOR_TRIGGER_TOKEN if you want a separate browser unlock token.",
     syncMissingWorkerUrl:
       "Set NEXT_PUBLIC_COLLECTOR_URL on Vercel so the app can reach the Worker.",
     syncMissingApiSecret:
@@ -85,6 +87,8 @@ const COPY = {
     syncCollector: "Collector同期",
     syncingCollector: "同期中…",
     syncReady: "secret と Vercel env を設定したら、手動同期を一度実行できます。",
+    syncUsingApiSecretFallback:
+      "現在は COLLECTOR_API_SECRET を trigger token として代用しています。ブラウザ解除トークンを分離したい場合は COLLECTOR_TRIGGER_TOKEN を追加してください。",
     syncMissingWorkerUrl:
       "アプリから Worker に到達できるよう、Vercel に NEXT_PUBLIC_COLLECTOR_URL を設定してください。",
     syncMissingApiSecret:
@@ -236,6 +240,7 @@ export function RepoRadarShell({
   const canTriggerCollector = viewerMatchesCollector && collectorStatus.configured;
   const manualSyncReady = canTriggerCollector && collectorSyncConfig.manualSyncReady;
   const canSyncCollector = manualSyncReady && hasTriggerSession;
+  const usingApiSecretFallback = collectorSyncConfig.triggerTokenSource === "api_secret_fallback";
   const missingSyncMessages = [
     !collectorSyncConfig.workerUrlConfigured ? copy.syncMissingWorkerUrl : null,
     !collectorSyncConfig.apiSecretConfigured ? copy.syncMissingApiSecret : null,
@@ -502,7 +507,12 @@ export function RepoRadarShell({
           {canTriggerCollector || syncFeedback ? (
             <div className="mb-8 flex flex-wrap items-center gap-2">
               {manualSyncReady ? (
-                <InfoPill>{copy.syncReady}</InfoPill>
+                <>
+                  <InfoPill>{copy.syncReady}</InfoPill>
+                  {usingApiSecretFallback ? (
+                    <InfoPill>{copy.syncUsingApiSecretFallback}</InfoPill>
+                  ) : null}
+                </>
               ) : null}
               {canTriggerCollector && !manualSyncReady
                 ? missingSyncMessages.map((message) => (
