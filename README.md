@@ -94,6 +94,7 @@ bash scripts/setup-collector-secrets.sh
 ```
 
 This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local `.env.local` with:
+- `GITHUB_USERNAME` (synced from `worker/wrangler.toml` when configured)
 - `NEXT_PUBLIC_COLLECTOR_URL`
 - `COLLECTOR_API_SECRET`
 - `COLLECTOR_TRIGGER_TOKEN`
@@ -116,10 +117,12 @@ npm run collector:check:vercel-env
 
 ```bash
 npm run collector:check
+npm run collector:check:offline
 npm run collector:check:trigger
 ```
 
 `collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage together with a local env checklist.
+`collector:check:offline` skips network calls and validates only local `.env.local` + `worker/wrangler.toml` wiring (good for preflight before secrets/env are fully connected).
 `collector:check:trigger` also sends `POST /api/collect` before re-reading status.
 If Worker secrets are missing, `collector:check` prints concrete `wrangler secret put ...` commands.
 If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env and requires `COLLECTOR_TRIGGER_TOKEN` to unlock it in the browser.

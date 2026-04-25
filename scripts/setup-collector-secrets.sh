@@ -22,6 +22,7 @@ if [[ ! -r "$WRANGLER_FILE" ]]; then
 fi
 
 worker_name="$(sed -n 's/^name = "\(.*\)"/\1/p' "$WRANGLER_FILE" | head -n 1)"
+worker_github_username="$(sed -n 's/^GITHUB_USERNAME = "\(.*\)"/\1/p' "$WRANGLER_FILE" | head -n 1)"
 worker_url="https://${worker_name}.workers.dev"
 
 if [[ -z "$worker_name" ]]; then
@@ -122,6 +123,10 @@ upsert_env_value "$ENV_FILE" "NEXT_PUBLIC_COLLECTOR_URL" "$worker_url"
 upsert_env_value "$ENV_FILE" "COLLECTOR_API_SECRET" "$API_SECRET"
 upsert_env_value "$ENV_FILE" "COLLECTOR_TRIGGER_TOKEN" "$COLLECTOR_TRIGGER_TOKEN"
 
+if [[ -n "$worker_github_username" && "$worker_github_username" != "your-github-username" ]]; then
+  upsert_env_value "$ENV_FILE" "GITHUB_USERNAME" "$worker_github_username"
+fi
+
 echo
 echo "Secrets uploaded."
 echo "Updated local env file: $ENV_FILE"
@@ -129,6 +134,9 @@ echo "Use the following values for Vercel env:"
 echo "NEXT_PUBLIC_COLLECTOR_URL=$worker_url"
 echo "COLLECTOR_API_SECRET=$API_SECRET"
 echo "COLLECTOR_TRIGGER_TOKEN=$COLLECTOR_TRIGGER_TOKEN"
+if [[ -n "$worker_github_username" && "$worker_github_username" != "your-github-username" ]]; then
+  echo "GITHUB_USERNAME=$worker_github_username (synced from worker/wrangler.toml)"
+fi
 echo
 echo "Recommended next checks:"
 echo "1. Add the three env vars above to Vercel and redeploy."
