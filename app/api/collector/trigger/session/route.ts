@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -38,6 +39,25 @@ function readConfiguredTriggerToken() {
   return hasNonPlaceholderValue(fallbackToken) ? fallbackToken : "";
 }
 
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function secureTokenEquals(left: string, right: string) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 function isSecureCookie() {
   return process.env.NODE_ENV === "production";
 }
@@ -57,9 +77,10 @@ export async function GET() {
 
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(TRIGGER_SESSION_COOKIE)?.value;
+  const sessionTokenHash = hashToken(triggerToken);
 
   return NextResponse.json({
-    authenticated: sessionToken === triggerToken,
+    authenticated: secureTokenEquals(sessionToken ?? "", sessionTokenHash),
   });
 }
 
@@ -89,14 +110,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Trigger token is required." }, { status: 400 });
   }
 
-  if (submittedToken !== triggerToken) {
+  if (!secureTokenEquals(submittedToken, triggerToken)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const cookieStore = await cookies();
   cookieStore.set({
     name: TRIGGER_SESSION_COOKIE,
-    value: triggerToken,
+    value: hashToken(triggerToken),
     httpOnly: true,
     sameSite: "strict",
     secure: isSecureCookie(),

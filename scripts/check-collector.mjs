@@ -317,12 +317,15 @@ async function main() {
   }
 
   try {
+    const statusHeaders = {
+      Accept: "application/json",
+      ...(hasRealValue(apiSecret) ? { "X-API-Secret": apiSecret } : {}),
+    };
+
     const status = await requestJson(
       `${baseUrl}/api/status`,
       {
-        headers: {
-          Accept: "application/json",
-        },
+        headers: statusHeaders,
       },
       { allowNonOk: true },
     );

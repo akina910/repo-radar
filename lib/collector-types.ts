@@ -15,6 +15,7 @@ export type ReferrerSummary = {
 export type CollectorStatusPayload = {
   status: "ok" | "degraded";
   owner?: string | null;
+  runtime_config_visible?: boolean;
   last_collection?: {
     collected_at?: string;
     repo_count?: number;

@@ -489,6 +489,9 @@ const worker = {
         env.repo_radar_kv.get("last_collection"),
         getDbStats(env),
       ]);
+      const providedApiSecret = request.headers.get("X-API-Secret");
+      const runtimeConfigVisible =
+        runtimeConfig.api_secret_configured && providedApiSecret === env.API_SECRET;
       let parsedLastCollection: unknown = null;
 
       if (last) {
@@ -516,7 +519,8 @@ const worker = {
         owner: env.GITHUB_USERNAME ?? null,
         last_collection: parsedLastCollection,
         db_stats: dbStats,
-        runtime_config: runtimeConfig,
+        runtime_config_visible: runtimeConfigVisible,
+        runtime_config: runtimeConfigVisible ? runtimeConfig : null,
       }, status === "ok" ? 200 : 503);
     }
 

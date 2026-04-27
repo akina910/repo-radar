@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -28,6 +29,25 @@ function readConfiguredTriggerToken() {
   return hasNonPlaceholderValue(fallbackToken) ? fallbackToken : "";
 }
 
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function secureTokenEquals(left: string, right: string) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 function readJsonSafely(text: string) {
   if (!text) {
     return null;
@@ -55,8 +75,12 @@ async function requireCollectorTriggerAuth(request: Request) {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(TRIGGER_SESSION_COOKIE)?.value;
   const headerToken = request.headers.get("x-trigger-token");
+  const expectedSessionToken = hashToken(triggerToken);
 
-  if (sessionToken === triggerToken || headerToken === triggerToken) {
+  if (
+    secureTokenEquals(sessionToken ?? "", expectedSessionToken) ||
+    secureTokenEquals(headerToken ?? "", triggerToken)
+  ) {
     return null;
   }
 

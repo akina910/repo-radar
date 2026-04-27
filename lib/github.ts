@@ -206,6 +206,7 @@ function hasNonPlaceholderValue(value: string | undefined) {
 
 export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
   const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+  const collectorApiSecret = process.env.COLLECTOR_API_SECRET;
 
   if (!baseUrl) {
     return {
@@ -229,7 +230,17 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
   }
 
   try {
+    const headers: HeadersInit = {};
+    const statusApiSecret = hasNonPlaceholderValue(collectorApiSecret)
+      ? collectorApiSecret
+      : null;
+
+    if (statusApiSecret) {
+      headers["X-API-Secret"] = statusApiSecret;
+    }
+
     const response = await fetch(`${baseUrl}/api/status`, {
+      headers,
       next: { revalidate: 3600 },
     });
     const data = (await response.json()) as CollectorStatusPayload;
