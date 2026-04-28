@@ -11,6 +11,7 @@ A small dashboard for tracking how your public GitHub repositories are doing.
 - optionally shows views, peak daily views, and clones from GitHub traffic endpoints
 - surfaces top referrers when the Cloudflare collector is enabled
 - batches collector traffic/referrer fetches in chunks to stay stable even with large repo lists
+- limits batch proxy concurrency and applies request timeouts so collector hiccups degrade gracefully
 - lets you sort the list to spot what is moving
 
 ## Why it exists

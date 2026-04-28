@@ -10,33 +10,41 @@
 追記内容:
 
 ```md
-## 21. 追加改善（2026-04-28）
+## 21. 実装更新（2026-04-28）
 
-### 【自動化済み】大量 repo 向けの collector バッチ安定化
-- `components/repo-radar.tsx`:
-  - collector 向けの traffic/referrer バッチ取得を **40件チャンク** へ分割するロジックを追加。
-  - URL 長超過や一括失敗の確率を下げ、repo 数が多いアカウントでも sparkline / referrer が欠けにくくなった。
-- `app/api/traffic-batch/route.ts` / `app/api/referrers-batch/route.ts`:
-  - `repos` クエリを正規化（trim / 重複除去 / 許可文字のみ / 上限 60件）。
-  - 不正・過大入力で Worker へ不要な負荷がかからないようにした。
-- `app/api/traffic/[repo]/route.ts`:
-  - 返却 JSON を配列チェックしてから返すようにし、想定外 payload でも `[]` フォールバックに統一。
-- `README.md`:
-  - collector fetch をチャンク分割している旨を追記。
+### 21-1. 今回の判断
+- 現状は「機能不足」ではなく「運用時の失敗耐性」がボトルネックと判断。
+- 手動 secret 設定待ちでも実装価値を出すため、Collector バッチ API の安定化を優先。
 
-### 検証結果
-- `npm run lint`: pass
-- `npm run build`: pass
+### 21-2. 実施内容（実装repo: `repo-radar`）
+- 新規: `lib/collector-batch.ts`
+  - `repos` クエリの共通バリデーション
+  - Collector 呼び出しの同時実行数制限（8）
+  - 外部 fetch タイムアウト（8秒）
+  - `TrafficDay` / `ReferrerSummary` の型ガード
+- 更新: `app/api/traffic-batch/route.ts`
+  - ルート内重複ロジックを共通化
+  - 型検証済みデータのみ返却
+- 更新: `app/api/referrers-batch/route.ts`
+  - 同上（共通化 + 同時実行制限 + タイムアウト + 型検証）
 
-### Reviewer gate 実行結果（環境制約）
-- Codex（本エージェント）: 差分レビュー実施、重大な回帰なし。
-- Copilot: `gh copilot` は利用可能だが、`gh auth status` が token invalid（`The token in default is invalid.`）で実行不可。
-- Claude: CLI 未導入（`claude: command not found`）で実行不可。
-- 3系統フル実行は未達。認証/CLI 復旧後に再実行が必要。
+### 21-3. 検証結果
+- `npm run lint` ✅
+- `npm run build` ✅
 
-### Cloudflare MCP 実リソース確認
-- `mcp__cloudflare_api__.execute` で workers/D1/KV/R2 一覧取得を2回実行したが、いずれも `user cancelled MCP tool call` で取得不可。
-- handoff §9 の既存リソース情報（Worker/D1/KV 作成済み）は維持。
+### 21-4. Cloudflare 実リソース確認について
+- `Cloudflare MCP (mcp__cloudflare_api__.execute)` は 2026-04-28 JST 実行時に毎回 `user cancelled MCP tool call` となり確認不能。
+- 代替で `wrangler whoami` も試行したが、ネットワーク/DNS解決不可で Cloudflare API 到達不可（`Unable to resolve Cloudflare's API hostname`）。
+- よって、リソースの「実在再確認」は今回は未完了。既存 handoff §9 の値を暫定正本として維持。
+
+### 21-5. レビューゲート状況（Codex / Copilot / Claude）
+- Codex: 実施（差分セルフレビュー + lint/buildで整合確認）。
+- Copilot: **未実施（失敗）**。`gh copilot` 実行時 `SecItemCopyMatching failed -50`、`gh auth status` で token invalid を確認。
+- Claude: **未実施（未導入）**。`claude` コマンドが存在しないことを確認。
+
+### 21-6. 次の人間作業（最短）
+- `repo-radar` で `npm run collector:bootstrap -- --yes` を実行（途中でPAT入力が必要）。
+- 失敗時は `npm run collector:check` で不足（Worker secret / Vercel env）を特定し、表示コマンドどおり補完。
 ```
 
 ## 2) `project-index.md` の BI-007「次アクション」差し替え案
@@ -47,7 +55,7 @@
 置換文:
 
 ```md
-【手動・残り1ステップ】`cd repo-radar && npm run collector:bootstrap -- --yes` を実行し、対話で `GITHUB_TOKEN`（classic PAT）と `API_SECRET` を入力して完了させる（内部で Worker secrets投入 → Vercel env反映/検証 → 任意redeploy → trigger check まで実行）。`gh auth` と `vercel login` が未完了なら先に認証。Cloudflare Worker/D1/KV/スキーマ/Next.js統合は完了済み、2026-04-28 に collector バッチ取得の安定化（チャンク分割＋入力正規化）まで反映済み。
+【手動・残り1ステップ】`cd repo-radar && npm run collector:bootstrap -- --yes` を実行し、対話で `GITHUB_TOKEN`（classic PAT）を入力して完了させる（内部で Worker secrets投入 → Vercel env反映/検証 → deploy → trigger check まで一括）。失敗時は `npm run collector:check` で不足箇所を確認。2026-04-28 に collector バッチ API（traffic/referrers）の同時実行制限・タイムアウト・型検証を実装済み。
 ```
 
 ## 3) 注意
