@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import type { TrafficDay } from "@/lib/collector-types";
 
+const MAX_REPOS_PER_BATCH = 60;
+const GITHUB_REPO_NAME_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
+
 function decodeRepoSegment(repo: string) {
   try {
     return decodeURIComponent(repo);
@@ -15,10 +18,16 @@ function parseReposParam(reposParam: string | null) {
     return [];
   }
 
-  return reposParam
-    .split(",")
-    .filter(Boolean)
-    .map((repo) => decodeRepoSegment(repo));
+  return Array.from(
+    new Set(
+      reposParam
+        .split(",")
+        .filter(Boolean)
+        .map((repo) => decodeRepoSegment(repo).trim())
+        .filter((repo) => GITHUB_REPO_NAME_PATTERN.test(repo))
+        .slice(0, MAX_REPOS_PER_BATCH),
+    ),
+  );
 }
 
 export async function GET(request: NextRequest) {

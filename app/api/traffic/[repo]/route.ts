@@ -22,8 +22,8 @@ export async function GET(
       return NextResponse.json([] as TrafficDay[]);
     }
 
-    const data = (await response.json()) as TrafficDay[];
-    return NextResponse.json(data);
+    const data = (await response.json()) as unknown;
+    return NextResponse.json(Array.isArray(data) ? (data as TrafficDay[]) : []);
   } catch {
     return NextResponse.json([] as TrafficDay[]);
   }

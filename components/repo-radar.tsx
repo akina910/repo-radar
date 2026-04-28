@@ -133,6 +133,7 @@ const COPY: Record<Locale, CopySet> = {
 
 const EMPTY_SPARKLINES: Record<string, TrafficDay[]> = {};
 const EMPTY_REFERRERS: Record<string, ReferrerSummary[]> = {};
+const COLLECTOR_BATCH_CHUNK_SIZE = 40;
 
 async function fetchBatchMap<T>(
   input: string,
@@ -149,6 +150,37 @@ async function fetchBatchMap<T>(
   } catch {
     return fallback;
   }
+}
+
+async function fetchBatchMapByRepoChunks<T>(
+  routeBase: string,
+  repos: string[],
+  fallback: Record<string, T[]>,
+): Promise<Record<string, T[]>> {
+  if (repos.length === 0) {
+    return fallback;
+  }
+
+  const uniqueRepos = Array.from(new Set(repos));
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < uniqueRepos.length; index += COLLECTOR_BATCH_CHUNK_SIZE) {
+    chunks.push(uniqueRepos.slice(index, index + COLLECTOR_BATCH_CHUNK_SIZE));
+  }
+
+  const chunkResults = await Promise.all(
+    chunks.map((chunkRepos) => {
+      const query = chunkRepos.map(encodeURIComponent).join(",");
+      return fetchBatchMap<T>(`${routeBase}?repos=${query}`, fallback);
+    }),
+  );
+
+  const merged: Record<string, T[]> = {};
+  for (const result of chunkResults) {
+    Object.assign(merged, result);
+  }
+
+  return merged;
 }
 
 function formatRelativeDate(dateString: string, locale: Locale): string {
@@ -237,13 +269,19 @@ export function RepoRadar({
     if (collectorRepoNames.length === 0) {
       return;
     }
-
-    const query = collectorRepoNames.map(encodeURIComponent).join(",");
     let cancelled = false;
 
     Promise.all([
-      fetchBatchMap<TrafficDay>(`/api/traffic-batch?repos=${query}`, EMPTY_SPARKLINES),
-      fetchBatchMap<ReferrerSummary>(`/api/referrers-batch?repos=${query}`, EMPTY_REFERRERS),
+      fetchBatchMapByRepoChunks<TrafficDay>(
+        "/api/traffic-batch",
+        collectorRepoNames,
+        EMPTY_SPARKLINES,
+      ),
+      fetchBatchMapByRepoChunks<ReferrerSummary>(
+        "/api/referrers-batch",
+        collectorRepoNames,
+        EMPTY_REFERRERS,
+      ),
     ])
       .then(([sparklines, referrers]) => {
         if (cancelled) {
