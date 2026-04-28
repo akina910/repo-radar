@@ -2,31 +2,19 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { readConfiguredEnvValue } from "@/lib/env";
+
 const TRIGGER_SESSION_COOKIE = "collector-trigger-session";
 
-function hasNonPlaceholderValue(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  return !trimmed.startsWith("your-") && !trimmed.includes("your-collector-worker");
-}
-
 function readConfiguredTriggerToken() {
-  const dedicatedToken = process.env.COLLECTOR_TRIGGER_TOKEN?.trim() ?? "";
-  if (hasNonPlaceholderValue(dedicatedToken)) {
+  const dedicatedToken = readConfiguredEnvValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+  if (dedicatedToken) {
     return dedicatedToken;
   }
 
   // Keep manual sync workable with only two env vars:
   // NEXT_PUBLIC_COLLECTOR_URL + COLLECTOR_API_SECRET.
-  const fallbackToken = process.env.COLLECTOR_API_SECRET?.trim() ?? "";
-  return hasNonPlaceholderValue(fallbackToken) ? fallbackToken : "";
+  return readConfiguredEnvValue(process.env.COLLECTOR_API_SECRET);
 }
 
 function hashToken(token: string) {
@@ -94,8 +82,8 @@ export async function POST(request: Request) {
     return authError;
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL?.replace(/\/$/, "");
-  const apiSecret = process.env.COLLECTOR_API_SECRET;
+  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL).replace(/\/$/, "");
+  const apiSecret = readConfiguredEnvValue(process.env.COLLECTOR_API_SECRET);
 
   if (!baseUrl || !apiSecret) {
     return NextResponse.json(

@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "collector:bootstrap": "bash scripts/bootstrap-collector.sh",
     "collector:check": "node scripts/check-collector.mjs",
     "collector:check:offline": "node scripts/check-collector.mjs --offline",

@@ -2,21 +2,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { readConfiguredEnvValue } from "@/lib/env";
+
 const TRIGGER_SESSION_COOKIE = "collector-trigger-session";
 const TRIGGER_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
-
-function hasNonPlaceholderValue(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  return !trimmed.startsWith("your-") && !trimmed.includes("your-collector-worker");
-}
 
 function readToken(payload: unknown) {
   if (!payload || typeof payload !== "object") {
@@ -28,15 +17,14 @@ function readToken(payload: unknown) {
 }
 
 function readConfiguredTriggerToken() {
-  const dedicatedToken = process.env.COLLECTOR_TRIGGER_TOKEN?.trim() ?? "";
-  if (hasNonPlaceholderValue(dedicatedToken)) {
+  const dedicatedToken = readConfiguredEnvValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+  if (dedicatedToken) {
     return dedicatedToken;
   }
 
   // Keep browser unlock usable with only two env vars:
   // NEXT_PUBLIC_COLLECTOR_URL + COLLECTOR_API_SECRET.
-  const fallbackToken = process.env.COLLECTOR_API_SECRET?.trim() ?? "";
-  return hasNonPlaceholderValue(fallbackToken) ? fallbackToken : "";
+  return readConfiguredEnvValue(process.env.COLLECTOR_API_SECRET);
 }
 
 function hashToken(token: string) {

@@ -8,6 +8,7 @@ import type {
   CollectorStatus,
   CollectorStatusPayload,
 } from "@/lib/collector-types";
+import { hasConfiguredEnvValue, readConfiguredEnvValue } from "@/lib/env";
 
 type GitHubRepo = {
   id: number;
@@ -54,7 +55,7 @@ const GITHUB_REPOS_PAGE_SIZE = 100;
 const GITHUB_REPOS_MAX_PAGES = 20;
 
 function getHeaders() {
-  const token = process.env.GITHUB_TOKEN;
+  const token = readConfiguredEnvValue(process.env.GITHUB_TOKEN);
 
   return {
     Accept: "application/vnd.github+json",
@@ -98,7 +99,7 @@ async function fetchGitHubOwnerRepos(owner: string): Promise<GitHubRepo[]> {
 }
 
 async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones") {
-  const token = process.env.GITHUB_TOKEN;
+  const token = readConfiguredEnvValue(process.env.GITHUB_TOKEN);
 
   if (!token) {
     return null;
@@ -121,7 +122,7 @@ async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones
  * Returns null if NEXT_PUBLIC_COLLECTOR_URL is not set or the request fails.
  */
 async function fetchFromCollector(): Promise<CollectorRepo[] | null> {
-  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   if (!baseUrl) return null;
 
   try {
@@ -151,6 +152,15 @@ function readNullableNumber(value: unknown) {
 
 function readNullableBoolean(value: unknown) {
   return typeof value === "boolean" ? value : null;
+}
+
+function readGithubUsername(value: string | undefined | null) {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed === "your-github-username") {
+    return "";
+  }
+
+  return trimmed;
 }
 
 function hasCollectorStatusShape(value: unknown) {
@@ -191,21 +201,8 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
   };
 }
 
-function hasNonPlaceholderValue(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  return !trimmed.startsWith("your-") && !trimmed.includes("your-collector-worker");
-}
-
 export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
-  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   const collectorApiSecret = process.env.COLLECTOR_API_SECRET;
 
   if (!baseUrl) {
@@ -231,9 +228,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
 
   try {
     const headers: HeadersInit = {};
-    const statusApiSecret = hasNonPlaceholderValue(collectorApiSecret)
-      ? collectorApiSecret
-      : null;
+    const statusApiSecret = readConfiguredEnvValue(collectorApiSecret);
 
     if (statusApiSecret) {
       headers["X-API-Secret"] = statusApiSecret;
@@ -302,9 +297,9 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
 });
 
 export const getCollectorSyncConfig = cache(async (): Promise<CollectorSyncConfig> => {
-  const workerUrlConfigured = hasNonPlaceholderValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
-  const apiSecretConfigured = hasNonPlaceholderValue(process.env.COLLECTOR_API_SECRET);
-  const hasDedicatedTriggerToken = hasNonPlaceholderValue(process.env.COLLECTOR_TRIGGER_TOKEN);
+  const workerUrlConfigured = hasConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
+  const apiSecretConfigured = hasConfiguredEnvValue(process.env.COLLECTOR_API_SECRET);
+  const hasDedicatedTriggerToken = hasConfiguredEnvValue(process.env.COLLECTOR_TRIGGER_TOKEN);
   const hasFallbackTriggerToken = !hasDedicatedTriggerToken && apiSecretConfigured;
   const triggerTokenConfigured = hasDedicatedTriggerToken || hasFallbackTriggerToken;
   const triggerTokenSource = hasDedicatedTriggerToken
@@ -324,11 +319,8 @@ export const getCollectorSyncConfig = cache(async (): Promise<CollectorSyncConfi
 
 export const getRadarRepos = cache(async (usernameOverride?: string): Promise<RadarRepo[]> => {
   const rawUsername =
-    usernameOverride && usernameOverride !== "your-github-username"
-      ? usernameOverride
-      : process.env.GITHUB_USERNAME;
-  const username =
-    !rawUsername || rawUsername === "your-github-username" ? null : rawUsername;
+    readGithubUsername(usernameOverride) || readGithubUsername(process.env.GITHUB_USERNAME);
+  const username = readGithubUsername(rawUsername);
 
   if (!username) {
     return [];

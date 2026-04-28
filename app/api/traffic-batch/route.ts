@@ -6,10 +6,11 @@ import {
   parseCollectorReposParam,
 } from "@/lib/collector-batch";
 import type { TrafficDay } from "@/lib/collector-types";
+import { readConfiguredEnvValue } from "@/lib/env";
 
 export async function GET(request: NextRequest) {
   const repos = parseCollectorReposParam(request.nextUrl.searchParams.get("repos"));
-  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
 
   if (!baseUrl || repos.length === 0) {
     return NextResponse.json({} as Record<string, TrafficDay[]>);

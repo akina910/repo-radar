@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { isTrafficDay } from "@/lib/collector-batch";
 import type { TrafficDay } from "@/lib/collector-types";
+import { readConfiguredEnvValue } from "@/lib/env";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ repo: string }> },
 ) {
   const { repo } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_COLLECTOR_URL;
+  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
 
   if (!baseUrl) {
     return NextResponse.json([] as TrafficDay[]);
@@ -23,7 +25,7 @@ export async function GET(
     }
 
     const data = (await response.json()) as unknown;
-    return NextResponse.json(Array.isArray(data) ? (data as TrafficDay[]) : []);
+    return NextResponse.json(Array.isArray(data) ? data.filter(isTrafficDay) : []);
   } catch {
     return NextResponse.json([] as TrafficDay[]);
   }
