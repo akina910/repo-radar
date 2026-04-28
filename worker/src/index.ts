@@ -520,7 +520,8 @@ const worker = {
         last_collection: parsedLastCollection,
         db_stats: dbStats,
         runtime_config_visible: runtimeConfigVisible,
-        runtime_config: runtimeConfigVisible ? runtimeConfig : null,
+        // Safe to expose: booleans only, no secret values.
+        runtime_config: runtimeConfig,
       }, status === "ok" ? 200 : 503);
     }
 
