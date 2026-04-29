@@ -86,6 +86,40 @@ function hasLikelyId(value) {
   return hasRealValue(value) && value.length >= 8;
 }
 
+function readUrlIssue(value) {
+  if (!hasRealValue(value)) {
+    return "missing";
+  }
+
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return "invalid URL";
+  }
+
+  if (url.pathname !== "/" || url.search || url.hash) {
+    return "must be a bare origin";
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    return "must use http or https";
+  }
+
+  if (url.hostname.endsWith(".workers.dev")) {
+    const labels = url.hostname.split(".");
+    if (labels.length < 4) {
+      return "missing workers.dev account subdomain";
+    }
+  }
+
+  return "";
+}
+
+function hasLikelyCollectorUrl(value) {
+  return readUrlIssue(value) === "";
+}
+
 async function requestJson(url, init, options = {}) {
   const response = await fetch(url, init);
   const text = await response.text();
@@ -108,10 +142,13 @@ async function requestJson(url, init, options = {}) {
 
 function printEnvChecklist({ baseUrl, apiSecret, triggerToken, githubUsername }) {
   const triggerTokenEffective = hasRealValue(triggerToken) || hasRealValue(apiSecret);
+  const collectorUrlIssue = readUrlIssue(baseUrl);
 
   console.log("local_env:");
   console.log(`  GITHUB_USERNAME: ${hasRealValue(githubUsername) ? "ok" : "missing"}`);
-  console.log(`  NEXT_PUBLIC_COLLECTOR_URL: ${hasRealValue(baseUrl) ? "ok" : "missing"}`);
+  console.log(
+    `  NEXT_PUBLIC_COLLECTOR_URL: ${collectorUrlIssue ? collectorUrlIssue : "ok"}`,
+  );
   console.log(`  COLLECTOR_API_SECRET: ${hasRealValue(apiSecret) ? "ok" : "missing"}`);
   console.log(
     `  COLLECTOR_TRIGGER_TOKEN: ${hasRealValue(triggerToken) ? "ok" : triggerTokenEffective ? "optional (fallback to COLLECTOR_API_SECRET)" : "missing"}`,
@@ -195,6 +232,12 @@ function printActionableHints({
     actions.push("bash scripts/setup-collector-secrets.sh");
   }
 
+  if (hasRealValue(baseUrl) && !hasLikelyCollectorUrl(baseUrl)) {
+    actions.push(
+      "set NEXT_PUBLIC_COLLECTOR_URL to the full Worker origin: https://<worker-name>.<workers-dev-subdomain>.workers.dev",
+    );
+  }
+
   if (!hasRealValue(githubUsername) && hasRealValue(wrangler.githubUsername)) {
     actions.push(`echo 'GITHUB_USERNAME="${wrangler.githubUsername}"' >> .env.local`);
   }
@@ -274,7 +317,7 @@ async function main() {
     });
 
     const hasBlockingLocalGaps =
-      !hasRealValue(baseUrl) ||
+      !hasLikelyCollectorUrl(baseUrl) ||
       !hasRealValue(apiSecret) ||
       !hasRealValue(wrangler.githubUsername) ||
       !hasLikelyId(wrangler.d1DatabaseId) ||
@@ -283,8 +326,11 @@ async function main() {
     process.exit(hasBlockingLocalGaps ? 1 : 0);
   }
 
-  if (!hasRealValue(baseUrl)) {
-    console.error("NEXT_PUBLIC_COLLECTOR_URL is missing. Set it in .env.local or the shell.");
+  if (!hasLikelyCollectorUrl(baseUrl)) {
+    const issue = readUrlIssue(baseUrl);
+    console.error(
+      `NEXT_PUBLIC_COLLECTOR_URL is ${issue}. Set the full Worker origin in .env.local or the shell.`,
+    );
     process.exit(1);
   }
 

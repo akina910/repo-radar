@@ -12,6 +12,8 @@ Usage: scripts/setup-collector-secrets.sh [options]
 
 Options:
   --env-file <path>  Path to local env file to update (default: .env.local)
+  --worker-url <url> Full deployed Worker URL, e.g.
+                     https://repo-radar-collector.<workers-dev-subdomain>.workers.dev
   -h, --help         Show this help
 EOF
 }
@@ -24,6 +26,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ENV_FILE="$2"
+      shift 2
+      ;;
+    --worker-url)
+      if [[ $# -lt 2 ]]; then
+        echo "--worker-url requires a URL argument"
+        exit 1
+      fi
+      COLLECTOR_WORKER_URL="$2"
       shift 2
       ;;
     -h|--help)
@@ -42,6 +52,9 @@ if [[ "$ENV_FILE" != /* ]]; then
   ENV_FILE="$PWD/$ENV_FILE"
 fi
 
+export WRANGLER_LOG_PATH="${WRANGLER_LOG_PATH:-$ROOT_DIR/.wrangler/logs}"
+mkdir -p "$WRANGLER_LOG_PATH"
+
 if ! command -v wrangler >/dev/null 2>&1; then
   echo "wrangler is required. Install it first."
   exit 1
@@ -59,12 +72,94 @@ fi
 
 worker_name="$(sed -n 's/^name = "\(.*\)"/\1/p' "$WRANGLER_FILE" | head -n 1)"
 worker_github_username="$(sed -n 's/^GITHUB_USERNAME = "\(.*\)"/\1/p' "$WRANGLER_FILE" | head -n 1)"
-worker_url="https://${worker_name}.workers.dev"
 
 if [[ -z "$worker_name" ]]; then
   echo "Failed to read worker name from worker/wrangler.toml."
   exit 1
 fi
+
+read_env_value() {
+  local file="$1"
+  local key="$2"
+  local value
+
+  if [[ ! -f "$file" ]]; then
+    return
+  fi
+
+  value="$(sed -n "s/^${key}=//p" "$file" | head -n 1)"
+
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+    printf '%b' "$value"
+    return
+  fi
+
+  printf '%s' "$value"
+}
+
+has_real_value() {
+  local value="$1"
+  [[ -n "$value" && "$value" != your-* && "$value" != *your-collector-worker* ]]
+}
+
+normalize_worker_url() {
+  local value="$1"
+
+  value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  value="${value%/}"
+
+  printf '%s' "$value"
+}
+
+validate_worker_url() {
+  local value="$1"
+  local host
+  local label_count
+
+  if [[ ! "$value" =~ ^https?://[^/?#]+$ ]]; then
+    echo "Collector Worker URL must be a bare http(s) origin, not a path, query, or fragment: $value"
+    return 1
+  fi
+
+  host="${value#http://}"
+  host="${host#https://}"
+
+  if [[ "$host" == *.workers.dev ]]; then
+    label_count="$(awk -F. '{ print NF }' <<< "$host")"
+    if [[ "$label_count" -lt 4 ]]; then
+      echo "Collector Worker URL is missing the workers.dev account subdomain: $value"
+      echo "Expected: https://${worker_name}.<workers-dev-subdomain>.workers.dev"
+      return 1
+    fi
+  fi
+}
+
+worker_url="$(
+  normalize_worker_url "${COLLECTOR_WORKER_URL:-${NEXT_PUBLIC_COLLECTOR_URL:-}}"
+)"
+
+if ! has_real_value "$worker_url"; then
+  worker_url="$(normalize_worker_url "$(read_env_value "$ENV_FILE" NEXT_PUBLIC_COLLECTOR_URL)")"
+fi
+
+if ! has_real_value "$worker_url"; then
+  echo "Collector Worker URL is required."
+  echo "Use the deployed workers.dev origin, for example:"
+  echo "  https://${worker_name}.<workers-dev-subdomain>.workers.dev"
+  printf "Collector Worker URL: "
+  read -r worker_url
+  worker_url="$(normalize_worker_url "$worker_url")"
+fi
+
+if ! has_real_value "$worker_url"; then
+  echo "Collector Worker URL is required."
+  echo "You can pass it non-interactively with:"
+  echo "  COLLECTOR_WORKER_URL=https://${worker_name}.<workers-dev-subdomain>.workers.dev bash scripts/setup-collector-secrets.sh"
+  exit 1
+fi
+
+validate_worker_url "$worker_url"
 
 escape_env_value() {
   local value="$1"

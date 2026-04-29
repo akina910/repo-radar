@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/.env.local"
+COLLECTOR_WORKER_URL="${COLLECTOR_WORKER_URL:-}"
 ASSUME_YES=false
 SKIP_VERCEL_ENV=false
 SKIP_VERCEL_CHECK=false
@@ -16,6 +17,7 @@ Usage: scripts/bootstrap-collector.sh [options]
 Options:
   --yes               Run non-interactively (deploy/check are auto-run)
   --env-file <path>   Path to env file (default: .env.local)
+  --worker-url <url>  Full deployed Worker URL to write to the env file
   --skip-vercel-env   Skip pushing env vars to Vercel
   --skip-vercel-check Skip checking collector env vars on Vercel
   --skip-deploy       Skip production deploy step
@@ -36,6 +38,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ENV_FILE="$2"
+      shift 2
+      ;;
+    --worker-url)
+      if [[ $# -lt 2 ]]; then
+        echo "--worker-url requires a URL argument"
+        exit 1
+      fi
+      COLLECTOR_WORKER_URL="$2"
       shift 2
       ;;
     --skip-vercel-env)
@@ -81,7 +91,11 @@ if [[ "$SKIP_VERCEL_ENV" == "false" || "$SKIP_VERCEL_CHECK" == "false" || "$SKIP
 fi
 
 echo "Step 1/5: Upload worker secrets and sync local env file"
-bash "$ROOT_DIR/scripts/setup-collector-secrets.sh" --env-file "$ENV_FILE"
+setup_args=(--env-file "$ENV_FILE")
+if [[ -n "$COLLECTOR_WORKER_URL" ]]; then
+  setup_args+=(--worker-url "$COLLECTOR_WORKER_URL")
+fi
+bash "$ROOT_DIR/scripts/setup-collector-secrets.sh" "${setup_args[@]}"
 
 if [[ "$SKIP_VERCEL_ENV" == "true" ]]; then
   echo

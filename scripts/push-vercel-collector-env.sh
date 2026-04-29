@@ -34,6 +34,29 @@ has_real_value() {
   [[ -n "$value" && "$value" != your-* && "$value" != *your-collector-worker* ]]
 }
 
+validate_collector_url() {
+  local value="$1"
+  local host
+  local label_count
+
+  if [[ ! "$value" =~ ^https?://[^/?#]+$ ]]; then
+    echo "NEXT_PUBLIC_COLLECTOR_URL must be a bare http(s) origin, not a path, query, or fragment: $value"
+    return 1
+  fi
+
+  host="${value#http://}"
+  host="${host#https://}"
+
+  if [[ "$host" == *.workers.dev ]]; then
+    label_count="$(awk -F. '{ print NF }' <<< "$host")"
+    if [[ "$label_count" -lt 4 ]]; then
+      echo "NEXT_PUBLIC_COLLECTOR_URL is missing the workers.dev account subdomain: $value"
+      echo "Expected: https://<worker-name>.<workers-dev-subdomain>.workers.dev"
+      return 1
+    fi
+  fi
+}
+
 NEXT_PUBLIC_COLLECTOR_URL="$(read_env_value NEXT_PUBLIC_COLLECTOR_URL)"
 COLLECTOR_API_SECRET="$(read_env_value COLLECTOR_API_SECRET)"
 COLLECTOR_TRIGGER_TOKEN="$(read_env_value COLLECTOR_TRIGGER_TOKEN)"
@@ -42,6 +65,8 @@ if ! has_real_value "$NEXT_PUBLIC_COLLECTOR_URL"; then
   echo "NEXT_PUBLIC_COLLECTOR_URL is missing or placeholder in $ENV_FILE"
   exit 1
 fi
+
+validate_collector_url "$NEXT_PUBLIC_COLLECTOR_URL"
 
 if ! has_real_value "$COLLECTOR_API_SECRET"; then
   echo "COLLECTOR_API_SECRET is missing or placeholder in $ENV_FILE"
