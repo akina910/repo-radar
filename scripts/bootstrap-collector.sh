@@ -66,6 +66,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$ENV_FILE" != /* ]]; then
+  ENV_FILE="$PWD/$ENV_FILE"
+fi
+
 if ! command -v wrangler >/dev/null 2>&1; then
   echo "wrangler is required. Install it first."
   exit 1
@@ -76,8 +80,8 @@ if [[ "$SKIP_VERCEL_ENV" == "false" || "$SKIP_VERCEL_CHECK" == "false" || "$SKIP
   exit 1
 fi
 
-echo "Step 1/4: Upload worker secrets and sync local .env.local"
-bash "$ROOT_DIR/scripts/setup-collector-secrets.sh"
+echo "Step 1/5: Upload worker secrets and sync local env file"
+bash "$ROOT_DIR/scripts/setup-collector-secrets.sh" --env-file "$ENV_FILE"
 
 if [[ "$SKIP_VERCEL_ENV" == "true" ]]; then
   echo

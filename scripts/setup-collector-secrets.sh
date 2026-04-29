@@ -6,6 +6,42 @@ WORKER_DIR="$ROOT_DIR/worker"
 ENV_FILE="$ROOT_DIR/.env.local"
 WRANGLER_FILE="$WORKER_DIR/wrangler.toml"
 
+print_usage() {
+  cat <<'EOF'
+Usage: scripts/setup-collector-secrets.sh [options]
+
+Options:
+  --env-file <path>  Path to local env file to update (default: .env.local)
+  -h, --help         Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env-file)
+      if [[ $# -lt 2 ]]; then
+        echo "--env-file requires a path argument"
+        exit 1
+      fi
+      ENV_FILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      print_usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$ENV_FILE" != /* ]]; then
+  ENV_FILE="$PWD/$ENV_FILE"
+fi
+
 if ! command -v wrangler >/dev/null 2>&1; then
   echo "wrangler is required. Install it first."
   exit 1
@@ -50,6 +86,7 @@ upsert_env_value() {
   local updated=0
 
   rendered="${key}=$(escape_env_value "$value")"
+  mkdir -p "$(dirname "$file")"
   tmp="$(mktemp)"
 
   if [[ -f "$file" ]]; then

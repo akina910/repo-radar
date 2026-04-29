@@ -88,6 +88,12 @@ Skip specific steps when needed:
 npm run collector:bootstrap -- --skip-deploy --skip-check
 ```
 
+Use a non-default local env file when staging values:
+
+```bash
+npm run collector:bootstrap -- --env-file .env.production.local --skip-deploy
+```
+
 ### Manual path
 1. Upload Worker secrets in one pass:
 
@@ -101,10 +107,18 @@ This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local 
 - `COLLECTOR_API_SECRET`
 - `COLLECTOR_TRIGGER_TOKEN` (optional)
 
+To update a different env file, pass `--env-file <path>`.
+
 2. Push collector env values to Vercel from `.env.local`:
 
 ```bash
 npm run collector:push:vercel-env
+```
+
+For a custom env file, pass it through to the script:
+
+```bash
+npm run collector:push:vercel-env -- .env.production.local
 ```
 
 2.5. Verify Vercel env wiring before redeploy:
