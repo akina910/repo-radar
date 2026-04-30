@@ -140,6 +140,7 @@ npm run collector:check:trigger
 `collector:check` reads `.env.local` or shell env, fetches `/api/status`, and prints D1 history coverage together with a local env checklist.
 `collector:check:offline` skips network calls and validates only local `.env.local` + `worker/wrangler.toml` wiring (good for preflight before secrets/env are fully connected).
 `collector:check:trigger` also sends `POST /api/collect` before re-reading status.
+The check script also flags stale collector history when the latest snapshot is more than 2 days old, which usually means the first manual sync has not run or the Worker cron needs attention.
 `/api/status` always returns runtime configuration booleans (no secret values). `X-API-Secret` is only needed for protected actions like `POST /api/collect`.
 If Worker secrets are missing, `collector:check` prints concrete `wrangler secret put ...` commands.
 If you prefer to avoid local scripts after deployment, the app exposes a server-side `Sync collector` action that uses `COLLECTOR_API_SECRET` from Vercel env. Browser unlock uses `COLLECTOR_TRIGGER_TOKEN` when present, and falls back to `COLLECTOR_API_SECRET` when omitted.

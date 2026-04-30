@@ -6,6 +6,8 @@ import path from "node:path";
 const cwd = process.cwd();
 const envFilePath = path.join(cwd, ".env.local");
 const wranglerFilePath = path.join(cwd, "worker", "wrangler.toml");
+const staleAfterDays = 2;
+const millisecondsPerDay = 86_400_000;
 
 function parseEnvFile(content) {
   const entries = {};
@@ -120,6 +122,33 @@ function hasLikelyCollectorUrl(value) {
   return readUrlIssue(value) === "";
 }
 
+function millisecondsSinceCollectorDate(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.includes("T") ? value : `${value}T00:00:00.000Z`;
+  const time = Date.parse(normalized);
+
+  if (!Number.isFinite(time)) {
+    return null;
+  }
+
+  return Date.now() - time;
+}
+
+function readCollectorFreshness(status) {
+  const latestDate =
+    status?.db_stats?.latest_snapshot_date ?? status?.last_collection?.collected_at ?? null;
+  const ageMs = millisecondsSinceCollectorDate(latestDate);
+
+  return {
+    latestDate,
+    ageDays: ageMs === null ? null : Math.floor(ageMs / millisecondsPerDay),
+    stale: ageMs !== null && ageMs > staleAfterDays * millisecondsPerDay,
+  };
+}
+
 async function requestJson(url, init, options = {}) {
   const response = await fetch(url, init);
   const text = await response.text();
@@ -196,6 +225,10 @@ function printStatus(status) {
   console.log(`referrer_rows: ${status.db_stats?.referrer_rows ?? "-"}`);
   console.log(`kv_error: ${status.kv_error ?? "-"}`);
 
+  const freshness = readCollectorFreshness(status);
+  console.log(`collector_data_age_days: ${freshness.ageDays ?? "-"}`);
+  console.log(`collector_data_stale: ${freshness.stale ? "yes" : "no"}`);
+
   if (status.db_stats?.db_error) {
     console.log("db_error: true");
   }
@@ -260,11 +293,16 @@ function printActionableHints({
   }
 
   const runtime = status?.runtime_config ?? {};
+  const freshness = readCollectorFreshness(status);
   if (runtime.github_token_configured === false) {
     actions.push("cd worker && wrangler secret put GITHUB_TOKEN");
   }
   if (runtime.api_secret_configured === false) {
     actions.push("cd worker && wrangler secret put API_SECRET");
+  }
+  if (freshness.stale) {
+    actions.push("npm run collector:check:trigger");
+    actions.push("if data becomes stale again, verify the Worker cron trigger in Cloudflare");
   }
 
   const shouldSuggestVercelSync =

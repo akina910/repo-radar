@@ -25,6 +25,7 @@ const COPY = {
     collectorDirect: "GitHub direct mode",
     collectorUnavailable: "Collector unreachable",
     collectorDegraded: "Collector degraded",
+    collectorStale: "Collector stale",
     collectorSetupNeeded: "Collector not configured",
     collectorWaiting: "Collector ready, waiting for first sync",
     collectorOwner: "Collector owner",
@@ -55,6 +56,8 @@ const COPY = {
       "Worker runtime is missing the KV binding. Check worker/wrangler.toml [[kv_namespaces]].",
     syncWorkerKvAccessError:
       "Worker runtime cannot read the KV namespace. Check the KV binding and namespace access.",
+    syncCollectorStale:
+      "Collector data is stale. Run a manual sync, then check the Worker cron trigger if it gets stale again.",
     syncUnlockHelp: "Manual sync is protected. Enter the trigger token to enable it in this browser.",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "Enter trigger token",
@@ -83,6 +86,7 @@ const COPY = {
     collectorDirect: "GitHub 直取得モード",
     collectorUnavailable: "Collector に到達できません",
     collectorDegraded: "Collector の状態が不完全です",
+    collectorStale: "Collector が停止気味です",
     collectorSetupNeeded: "Collector 未設定",
     collectorWaiting: "Collector は有効で、初回同期待ちです",
     collectorOwner: "Collector対象",
@@ -113,6 +117,8 @@ const COPY = {
       "Worker の KV binding が未設定です。worker/wrangler.toml の [[kv_namespaces]] を確認してください。",
     syncWorkerKvAccessError:
       "Worker が KV namespace を読み取れません。KV binding と namespace access を確認してください。",
+    syncCollectorStale:
+      "Collector のデータが古くなっています。手動同期後、再び古くなる場合は Worker の cron trigger を確認してください。",
     syncUnlockHelp: "手動同期は保護されています。このブラウザで有効にするには trigger token を入力してください。",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "trigger token を入力",
@@ -128,6 +134,9 @@ const COPY = {
       "環境変数に GitHub ユーザー名を入れて、アプリを再起動してください。最初の版は意図的に小さくしています。",
   },
 } as const;
+
+const COLLECTOR_STALE_AFTER_DAYS = 2;
+const MS_PER_DAY = 86_400_000;
 
 type TriggerResponsePayload = {
   ok?: boolean;
@@ -149,6 +158,21 @@ function formatCollectorTimestamp(dateString: string, locale: Locale) {
     timeStyle: "short",
     timeZone: "UTC",
   });
+}
+
+function isCollectorDateStale(dateString: string | null) {
+  if (!dateString) {
+    return false;
+  }
+
+  const normalized = dateString.includes("T") ? dateString : `${dateString}T00:00:00.000Z`;
+  const time = new Date(normalized).getTime();
+
+  if (Number.isNaN(time)) {
+    return false;
+  }
+
+  return Date.now() - time > COLLECTOR_STALE_AFTER_DAYS * MS_PER_DAY;
 }
 
 async function readResponsePayload(response: Response): Promise<TriggerResponsePayload | null> {
@@ -237,19 +261,29 @@ export function RepoRadarShell({
     collectorStatus.reachable &&
     !collectorDegraded &&
     collectorStatus.lastCollectionAt == null;
+  const latestCollectorDataDate =
+    collectorStatus.latestSnapshotDate ?? collectorStatus.lastCollectionAt;
+  const collectorStale =
+    viewerMatchesCollector &&
+    collectorStatus.configured &&
+    collectorStatus.reachable &&
+    !collectorDegraded &&
+    isCollectorDateStale(latestCollectorDataDate);
   const collectorLabel = !collectorStatus.configured
     ? copy.collectorSetupNeeded
     : !collectorStatus.reachable
       ? copy.collectorUnavailable
       : collectorDegraded
         ? copy.collectorDegraded
+        : collectorStale
+          ? copy.collectorStale
         : collectorEnabled
           ? copy.collectorHistoryOn
           : collectorWaiting
             ? copy.collectorWaiting
             : copy.collectorDirect;
   const collectorTone =
-    !collectorStatus.configured || !collectorStatus.reachable || collectorDegraded
+    !collectorStatus.configured || !collectorStatus.reachable || collectorDegraded || collectorStale
       ? "warning"
       : collectorEnabled
         ? "success"
@@ -531,6 +565,9 @@ export function RepoRadarShell({
                   <InfoPill>{copy.syncReady}</InfoPill>
                   {usingApiSecretFallback ? (
                     <InfoPill>{copy.syncUsingApiSecretFallback}</InfoPill>
+                  ) : null}
+                  {collectorStale ? (
+                    <InfoPill tone="warning">{copy.syncCollectorStale}</InfoPill>
                   ) : null}
                 </>
               ) : null}
