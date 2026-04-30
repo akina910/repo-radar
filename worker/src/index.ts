@@ -110,6 +110,11 @@ type RuntimeConfig = {
   kv_binding_configured: boolean;
 };
 
+type LastCollectionState = {
+  value: unknown;
+  error: boolean;
+};
+
 function hasConfiguredValue(value: string | undefined | null) {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -376,6 +381,35 @@ async function getDbStats(env: Env): Promise<CollectorDbStats> {
   }
 }
 
+async function getLastCollectionState(env: Env): Promise<LastCollectionState> {
+  try {
+    const last = await env.repo_radar_kv.get("last_collection");
+
+    if (!last) {
+      return { value: null, error: false };
+    }
+
+    try {
+      return { value: JSON.parse(last) as unknown, error: false };
+    } catch {
+      return {
+        value: {
+          parse_error: true,
+          raw: last,
+        },
+        error: false,
+      };
+    }
+  } catch (error) {
+    console.error("Failed to read KV status", error);
+
+    return {
+      value: null,
+      error: true,
+    };
+  }
+}
+
 function parsePositiveDays(value: string | null, fallback: number) {
   const parsed = parseInt(value ?? String(fallback), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -485,28 +519,17 @@ const worker = {
     // GET /api/status
     if (path === "/api/status") {
       const runtimeConfig = readRuntimeConfig(env);
-      const [last, dbStats] = await Promise.all([
-        env.repo_radar_kv.get("last_collection"),
+      const [lastCollection, dbStats] = await Promise.all([
+        getLastCollectionState(env),
         getDbStats(env),
       ]);
       const providedApiSecret = request.headers.get("X-API-Secret");
       const runtimeConfigVisible =
         runtimeConfig.api_secret_configured && providedApiSecret === env.API_SECRET;
-      let parsedLastCollection: unknown = null;
-
-      if (last) {
-        try {
-          parsedLastCollection = JSON.parse(last);
-        } catch {
-          parsedLastCollection = {
-            parse_error: true,
-            raw: last,
-          };
-        }
-      }
 
       const status =
         dbStats.ready &&
+        !lastCollection.error &&
         runtimeConfig.github_username_configured &&
         runtimeConfig.github_token_configured &&
         runtimeConfig.api_secret_configured &&
@@ -517,7 +540,8 @@ const worker = {
       return json({
         status,
         owner: env.GITHUB_USERNAME ?? null,
-        last_collection: parsedLastCollection,
+        last_collection: lastCollection.value,
+        kv_error: lastCollection.error,
         db_stats: dbStats,
         runtime_config_visible: runtimeConfigVisible,
         // Safe to expose: booleans only, no secret values.

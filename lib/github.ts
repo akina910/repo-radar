@@ -154,6 +154,10 @@ function readNullableBoolean(value: unknown) {
   return typeof value === "boolean" ? value : null;
 }
 
+function readCollectorRuntimeStatus(value: unknown) {
+  return value === "ok" || value === "degraded" ? value : null;
+}
+
 function readGithubUsername(value: string | undefined | null) {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === "your-github-username") {
@@ -184,6 +188,7 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
   const runtimeConfig = isJsonRecord(payload.runtime_config) ? payload.runtime_config : null;
 
   return {
+    status: readCollectorRuntimeStatus(payload.status),
     configuredOwner: readNullableString(payload.owner),
     lastCollectionAt: readNullableString(lastCollection?.collected_at),
     repoCount: readNullableNumber(lastCollection?.repo_count),
@@ -193,6 +198,7 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
     referrerRows: readNullableNumber(dbStats?.referrer_rows),
     reposWithHistory: readNullableNumber(dbStats?.repos_with_history),
     dbError: readNullableBoolean(dbStats?.db_error),
+    kvError: readNullableBoolean(payload.kv_error),
     runtimeGithubUsernameConfigured: readNullableBoolean(runtimeConfig?.github_username_configured),
     runtimeGithubTokenConfigured: readNullableBoolean(runtimeConfig?.github_token_configured),
     runtimeApiSecretConfigured: readNullableBoolean(runtimeConfig?.api_secret_configured),
@@ -209,6 +215,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
     return {
       configured: false,
       reachable: false,
+      status: null,
       configuredOwner: null,
       lastCollectionAt: null,
       repoCount: null,
@@ -218,6 +225,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       referrerRows: null,
       reposWithHistory: null,
       dbError: null,
+      kvError: null,
       runtimeGithubUsernameConfigured: null,
       runtimeGithubTokenConfigured: null,
       runtimeApiSecretConfigured: null,
@@ -252,6 +260,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       return {
         configured: true,
         reachable: false,
+        status: null,
         configuredOwner: null,
         lastCollectionAt: null,
         repoCount: null,
@@ -261,6 +270,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
         referrerRows: null,
         reposWithHistory: null,
         dbError: null,
+        kvError: null,
         runtimeGithubUsernameConfigured: null,
         runtimeGithubTokenConfigured: null,
         runtimeApiSecretConfigured: null,
@@ -278,6 +288,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
     return {
       configured: true,
       reachable: false,
+      status: null,
       configuredOwner: null,
       lastCollectionAt: null,
       repoCount: null,
@@ -287,6 +298,7 @@ export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
       referrerRows: null,
       reposWithHistory: null,
       dbError: null,
+      kvError: null,
       runtimeGithubUsernameConfigured: null,
       runtimeGithubTokenConfigured: null,
       runtimeApiSecretConfigured: null,

@@ -194,6 +194,7 @@ function printStatus(status) {
   console.log(`snapshots_count: ${status.db_stats?.snapshots_count ?? "-"}`);
   console.log(`repos_with_history: ${status.db_stats?.repos_with_history ?? "-"}`);
   console.log(`referrer_rows: ${status.db_stats?.referrer_rows ?? "-"}`);
+  console.log(`kv_error: ${status.kv_error ?? "-"}`);
 
   if (status.db_stats?.db_error) {
     console.log("db_error: true");
@@ -252,6 +253,10 @@ function printActionableHints({
 
   if (!hasLikelyId(wrangler.kvNamespaceId)) {
     actions.push("worker/wrangler.toml の [[kv_namespaces]] id を確認");
+  }
+
+  if (status?.kv_error === true) {
+    actions.push("Worker の KV binding / namespace access を確認");
   }
 
   const runtime = status?.runtime_config ?? {};

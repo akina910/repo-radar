@@ -15,6 +15,7 @@ export type ReferrerSummary = {
 export type CollectorStatusPayload = {
   status: "ok" | "degraded";
   owner?: string | null;
+  kv_error?: boolean;
   runtime_config_visible?: boolean;
   last_collection?: {
     collected_at?: string;
@@ -40,6 +41,7 @@ export type CollectorStatusPayload = {
 export type CollectorStatus = {
   configured: boolean;
   reachable: boolean;
+  status: "ok" | "degraded" | null;
   configuredOwner: string | null;
   lastCollectionAt: string | null;
   repoCount: number | null;
@@ -49,6 +51,7 @@ export type CollectorStatus = {
   referrerRows: number | null;
   reposWithHistory: number | null;
   dbError: boolean | null;
+  kvError: boolean | null;
   runtimeGithubUsernameConfigured: boolean | null;
   runtimeGithubTokenConfigured: boolean | null;
   runtimeApiSecretConfigured: boolean | null;

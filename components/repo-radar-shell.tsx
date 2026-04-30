@@ -49,6 +49,12 @@ const COPY = {
       "Worker runtime is missing GITHUB_TOKEN secret. Run: wrangler secret put GITHUB_TOKEN",
     syncMissingWorkerApiSecret:
       "Worker runtime is missing API_SECRET secret. Run: wrangler secret put API_SECRET",
+    syncMissingWorkerD1Binding:
+      "Worker runtime is missing the D1 binding. Check worker/wrangler.toml [[d1_databases]].",
+    syncMissingWorkerKvBinding:
+      "Worker runtime is missing the KV binding. Check worker/wrangler.toml [[kv_namespaces]].",
+    syncWorkerKvAccessError:
+      "Worker runtime cannot read the KV namespace. Check the KV binding and namespace access.",
     syncUnlockHelp: "Manual sync is protected. Enter the trigger token to enable it in this browser.",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "Enter trigger token",
@@ -101,6 +107,12 @@ const COPY = {
       "Worker の GITHUB_TOKEN secret が未設定です。`wrangler secret put GITHUB_TOKEN` を実行してください。",
     syncMissingWorkerApiSecret:
       "Worker の API_SECRET secret が未設定です。`wrangler secret put API_SECRET` を実行してください。",
+    syncMissingWorkerD1Binding:
+      "Worker の D1 binding が未設定です。worker/wrangler.toml の [[d1_databases]] を確認してください。",
+    syncMissingWorkerKvBinding:
+      "Worker の KV binding が未設定です。worker/wrangler.toml の [[kv_namespaces]] を確認してください。",
+    syncWorkerKvAccessError:
+      "Worker が KV namespace を読み取れません。KV binding と namespace access を確認してください。",
     syncUnlockHelp: "手動同期は保護されています。このブラウザで有効にするには trigger token を入力してください。",
     syncTokenLabel: "Trigger token",
     syncTokenPlaceholder: "trigger token を入力",
@@ -215,28 +227,33 @@ export function RepoRadarShell({
     Boolean(username) &&
     Boolean(collectorStatus.configuredOwner) &&
     username?.toLowerCase() === collectorStatus.configuredOwner?.toLowerCase();
+  const collectorDegraded =
+    collectorStatus.status === "degraded" ||
+    collectorStatus.kvError === true ||
+    !collectorStatus.dbReady;
   const collectorWaiting =
     viewerMatchesCollector &&
     collectorStatus.configured &&
     collectorStatus.reachable &&
-    collectorStatus.dbReady &&
+    !collectorDegraded &&
     collectorStatus.lastCollectionAt == null;
-  const collectorLabel = collectorEnabled
-    ? copy.collectorHistoryOn
-    : !collectorStatus.configured
-      ? copy.collectorSetupNeeded
-      : !collectorStatus.reachable
-        ? copy.collectorUnavailable
-        : !collectorStatus.dbReady
-          ? copy.collectorDegraded
+  const collectorLabel = !collectorStatus.configured
+    ? copy.collectorSetupNeeded
+    : !collectorStatus.reachable
+      ? copy.collectorUnavailable
+      : collectorDegraded
+        ? copy.collectorDegraded
+        : collectorEnabled
+          ? copy.collectorHistoryOn
           : collectorWaiting
-          ? copy.collectorWaiting
-          : copy.collectorDirect;
-  const collectorTone = collectorEnabled
-    ? "success"
-    : !collectorStatus.configured || !collectorStatus.reachable || !collectorStatus.dbReady
+            ? copy.collectorWaiting
+            : copy.collectorDirect;
+  const collectorTone =
+    !collectorStatus.configured || !collectorStatus.reachable || collectorDegraded
       ? "warning"
-      : "default";
+      : collectorEnabled
+        ? "success"
+        : "default";
   const canTriggerCollector = viewerMatchesCollector && collectorStatus.configured;
   const manualSyncReady = canTriggerCollector && collectorSyncConfig.manualSyncReady;
   const canSyncCollector = manualSyncReady && hasTriggerSession;
@@ -248,6 +265,9 @@ export function RepoRadarShell({
     collectorStatus.runtimeGithubUsernameConfigured === false ? copy.syncMissingWorkerGithubUsername : null,
     collectorStatus.runtimeGithubTokenConfigured === false ? copy.syncMissingWorkerGithubToken : null,
     collectorStatus.runtimeApiSecretConfigured === false ? copy.syncMissingWorkerApiSecret : null,
+    collectorStatus.runtimeD1BindingConfigured === false ? copy.syncMissingWorkerD1Binding : null,
+    collectorStatus.runtimeKvBindingConfigured === false ? copy.syncMissingWorkerKvBinding : null,
+    collectorStatus.kvError === true ? copy.syncWorkerKvAccessError : null,
   ].filter((message) => message !== null);
 
   useEffect(() => {
