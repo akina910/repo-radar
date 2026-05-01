@@ -35,6 +35,25 @@ export function parseCollectorReposParam(reposParam: string | null): string[] {
   return uniqueRepos.slice(0, MAX_REPOS_PER_BATCH);
 }
 
+export function parseCollectorRepoIdsParam(repoIdsParam: string | null): string[] {
+  if (!repoIdsParam) {
+    return [];
+  }
+
+  const uniqueRepoIds = Array.from(
+    new Set(
+      repoIdsParam
+        .split(",")
+        .filter(Boolean)
+        .map((repoId) => repoId.trim())
+        .filter((repoId) => /^\d+$/.test(repoId))
+        .filter((repoId) => Number.isSafeInteger(Number(repoId)) && Number(repoId) > 0),
+    ),
+  );
+
+  return uniqueRepoIds.slice(0, MAX_REPOS_PER_BATCH);
+}
+
 function createAbortControllerWithTimeout() {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), COLLECTOR_FETCH_TIMEOUT_MS);

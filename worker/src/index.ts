@@ -7,6 +7,8 @@
  *   GET /api/repos                       – repo list with 14-day + 90-day aggregated traffic
  *   GET /api/repos/:name/traffic?days=90 – daily traffic snapshots for one repo
  *   GET /api/repos/:name/referrers?days=30 – top referrers aggregated over recent days
+ *   GET /api/repos/id/:githubRepoId/traffic?days=90 – same, keyed by immutable GitHub repo ID
+ *   GET /api/repos/id/:githubRepoId/referrers?days=30 – same, keyed by immutable GitHub repo ID
  *   POST /api/collect                    – manual trigger (requires API_SECRET header)
  */
 
@@ -320,6 +322,24 @@ async function handleApiTraffic(env: Env, repoName: string, days = 90): Promise<
   return json(rows.results);
 }
 
+async function handleApiTrafficByRepoId(
+  env: Env,
+  githubRepoId: number,
+  days = 90,
+): Promise<Response> {
+  const cutoff = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const rows = await env.repo_radar_db
+    .prepare(
+      `SELECT date, views_count, views_uniques, clones_count, clones_uniques
+       FROM traffic_snapshots
+       WHERE github_repo_id = ? AND date >= ?
+       ORDER BY date ASC`,
+    )
+    .bind(githubRepoId, cutoff)
+    .all();
+  return json(rows.results);
+}
+
 async function handleApiReferrers(env: Env, repoName: string, days = 30): Promise<Response> {
   const cutoff = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
   const rows = await env.repo_radar_db
@@ -336,6 +356,30 @@ async function handleApiReferrers(env: Env, repoName: string, days = 30): Promis
        LIMIT 5`,
     )
     .bind(repoName, cutoff)
+    .all();
+
+  return json(rows.results);
+}
+
+async function handleApiReferrersByRepoId(
+  env: Env,
+  githubRepoId: number,
+  days = 30,
+): Promise<Response> {
+  const cutoff = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const rows = await env.repo_radar_db
+    .prepare(
+      `SELECT
+         referrer,
+         COALESCE(SUM(count), 0) AS total_count,
+         MAX(date)               AS last_seen
+       FROM referrers
+       WHERE github_repo_id = ? AND date >= ?
+       GROUP BY referrer
+       ORDER BY total_count DESC, last_seen DESC
+       LIMIT 5`,
+    )
+    .bind(githubRepoId, cutoff)
     .all();
 
   return json(rows.results);
@@ -451,6 +495,15 @@ function decodeRepoName(value: string) {
   }
 }
 
+function parseGithubRepoId(value: string) {
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 const worker = {
   // cron trigger
   async scheduled(_event: ScheduledEvent, env: Env) {
@@ -510,11 +563,35 @@ const worker = {
       return handleApiRepos(env, days);
     }
 
+    // GET /api/repos/id/:githubRepoId/traffic
+    const trafficByIdMatch = path.match(/^\/api\/repos\/id\/([^/]+)\/traffic$/);
+    if (trafficByIdMatch) {
+      const githubRepoId = parseGithubRepoId(trafficByIdMatch[1]);
+      if (githubRepoId === null) {
+        return json({ error: "Invalid GitHub repo ID" }, 400);
+      }
+
+      const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_TRAFFIC_WINDOW_DAYS);
+      return handleApiTrafficByRepoId(env, githubRepoId, days);
+    }
+
     // GET /api/repos/:name/traffic
     const trafficMatch = path.match(/^\/api\/repos\/([^/]+)\/traffic$/);
     if (trafficMatch) {
       const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_TRAFFIC_WINDOW_DAYS);
       return handleApiTraffic(env, decodeRepoName(trafficMatch[1]), days);
+    }
+
+    // GET /api/repos/id/:githubRepoId/referrers
+    const referrersByIdMatch = path.match(/^\/api\/repos\/id\/([^/]+)\/referrers$/);
+    if (referrersByIdMatch) {
+      const githubRepoId = parseGithubRepoId(referrersByIdMatch[1]);
+      if (githubRepoId === null) {
+        return json({ error: "Invalid GitHub repo ID" }, 400);
+      }
+
+      const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_REFERRER_WINDOW_DAYS);
+      return handleApiReferrersByRepoId(env, githubRepoId, days);
     }
 
     // GET /api/repos/:name/referrers

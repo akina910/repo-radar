@@ -10,43 +10,39 @@
 追記内容:
 
 ~~~md
-## 21. Collector運用耐性の追加（2026-05-01 13:34 JST）
+## 21. 実装済み改善（2026-05-01）
 
-### 判断
-現状は公開中で、Worker / D1 / KV / Next.js 統合は実装済み。残ブロッカーは Worker secrets と Vercel env の手動設定だが、初回設定時の入力ミスで collector が無効化されるリスクが残っていたため、手動作業を待たずに運用耐性を先に固めた。
+手動 secret / env 待ちの間に残っていた rename 耐性の穴を塞いだ。`lib/github.ts` は collector aggregate を `github_repo_id` で拾えるようになっていたが、sparkline / referrer の batch proxy は repo 名で Worker を参照していたため、GitHub 側で repo rename 直後かつ collector がまだ新名を収集していない間は、カード本体は 90日累計を表示できても sparkline / referrer が空になる可能性があった。
 
-### 実装したこと
-- `lib/env.ts` に `readConfiguredUrlOrigin()` を追加し、`NEXT_PUBLIC_COLLECTOR_URL` を実行時にも `http/https` の origin へ正規化するようにした。
-- `lib/github.ts`、`app/api/traffic-batch/route.ts`、`app/api/referrers-batch/route.ts`、`app/api/collector/trigger/route.ts` を上記 helper に寄せた。これで Vercel env に末尾 slash や path が混ざっても collector API 呼び出しが壊れにくい。
-- `worker/src/index.ts` の `days` query を `parseDaysParam()` に変更し、最大 365 日へ上限を設定した。過大な `days` 指定で D1 集計が無制限に広がるのを防ぐ。
+### 変更内容
+- `worker/src/index.ts`: `GET /api/repos/id/:githubRepoId/traffic` と `GET /api/repos/id/:githubRepoId/referrers` を追加。D1 の immutable `github_repo_id` で直接 traffic/referrer を読む。
+- `lib/collector-batch.ts`: batch proxy 用に `repoIds` パラメータの検証・重複排除を追加。
+- `app/api/traffic-batch/route.ts` / `app/api/referrers-batch/route.ts`: `repoIds` 優先で Worker を参照。旧 Worker へ先に Next.js が出ても壊れないよう、id 結果が全空かつ `repos` が揃っている場合は legacy repo-name endpoint にフォールバック。
+- `components/repo-radar.tsx`: collector-backed repo の sparkline/referrer batch を repo 名ではなく `repo.id` キーで扱うよう変更。
 
-### Cloudflare確認
-- Cloudflare MCP はこのセッションの `tool_search` では見つからず、MCP での実リソース一覧確認は未実行。
-- 代替で `wrangler deploy --dry-run` を実行し、Worker バンドルと bindings は確認済み:
-  - `env.repo_radar_kv`: `2fa43c6e27ef452aa6bd4548bd309109`
-  - `env.repo_radar_db`: `repo-radar-db`
-  - `env.GITHUB_USERNAME`: `akina910`
-- `wrangler d1 list` / `wrangler kv namespace list` は sandbox の DNS 制限で Cloudflare API に到達できず失敗。ローカル cache 上の active account は `a0a17abc799ba2891c7beb5c2f6eba37`。
-
-### 検証結果
+### 検証
 - `npm run typecheck`: pass
 - `npm run lint`: pass
 - `npm run build`: pass
 - `git diff --check`: pass
-- `WRANGLER_LOG_PATH="$PWD/.wrangler/logs" npx wrangler deploy --dry-run`: pass
-- `NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev COLLECTOR_API_SECRET=dummy GITHUB_USERNAME=akina910 npm run collector:check:offline`: pass
-- `.env.local` 未作成の通常 `npm run collector:check:offline` は expected fail。次アクションとして `scripts/setup-collector-secrets.sh` と Vercel env sync を提示する状態。
+- `WRANGLER_LOG_PATH=/Users/kiyo/Documents/GitHub/repo-radar/.wrangler/logs wrangler deploy --dry-run --outdir /private/tmp/repo-radar-worker-dry-run`: pass（KV/D1/GITHUB_USERNAME binding を確認）
+- `npm run collector:check:offline`: expected fail（ローカル `.env.local` 未設定のため。`worker/wrangler.toml` の Worker名 / GITHUB_USERNAME / D1 / KV / cron は ok）
+- Cloudflare MCP: このセッションでは callable tool が露出しておらず利用不可。代替で `wrangler` を使用したが、Cloudflare API への list / whoami は DNS 制限で失敗。dry-run は成功。
+- Reviewer chain: Codex CLI / Claude CLI は未インストール。Copilot CLI は `ERROR: SecItemCopyMatching failed -50` で help も起動できず利用不可。差分は手元で Codex self-review 済み。
 
-### レビューゲート
-- Codex: 本セッションで差分を手動レビューし、上記検証まで通過。追加修正なし。
-- Copilot: `copilot --help` と diff 入力の両方で `ERROR: SecItemCopyMatching failed -50`。さらに `gh auth status` は default account の token invalid を返したため、この環境では Copilot review gate 未完了。
-- Claude: `claude` CLI が存在せず未実行。
+### 次アクション
+【手動】今回の Worker 変更を本番へ反映してから、collector bootstrap を完了する。
 
-### 次に人間がやること
-1. 【手動・レビューゲート】`gh auth login -h github.com` で GitHub CLI を再認証し、Copilot CLI の Keychain エラーを解消して Copilot review を通す。
-2. 【手動・デプロイ残】`cd /Users/kiyo/Documents/GitHub/repo-radar/worker && wrangler secret put GITHUB_TOKEN && wrangler secret put API_SECRET` を実行。
-3. 【手動・Vercel】`NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` と `COLLECTOR_API_SECRET=<Worker API_SECRET と同じ値>` を Vercel に追加して redeploy。
-4. 【手動・確認】`npm run collector:check:trigger` または画面の `Sync collector` で初回 collection を実行する。
+```bash
+cd /Users/kiyo/Documents/GitHub/repo-radar/worker
+WRANGLER_LOG_PATH=/Users/kiyo/Documents/GitHub/repo-radar/.wrangler/logs wrangler deploy
+
+cd /Users/kiyo/Documents/GitHub/repo-radar
+npm run collector:bootstrap
+npm run collector:check:trigger
+```
+
+`collector:bootstrap` は Worker secrets (`GITHUB_TOKEN` / `API_SECRET`) と Vercel env (`NEXT_PUBLIC_COLLECTOR_URL` / `COLLECTOR_API_SECRET` / optional `COLLECTOR_TRIGGER_TOKEN`) をまとめて処理できる。Cloudflare / Vercel の認証や PAT 入力は人間が行う。
 ~~~
 
 ## 2) `project-index.md` の BI-007「次アクション」差し替え案
@@ -57,7 +53,7 @@
 置換文:
 
 ```md
-【手動・最優先】①`gh auth login -h github.com` でGitHub CLIを再認証し、Copilot CLIの `SecItemCopyMatching failed -50` を解消してCopilot review gateを通す ②`cd /Users/kiyo/Documents/GitHub/repo-radar/worker && wrangler secret put GITHUB_TOKEN && wrangler secret put API_SECRET` ③Vercel envに `NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` + `COLLECTOR_API_SECRET=<同じ値>` を追加して redeploy ④`npm run collector:check:trigger` または画面の `Sync collector` で初回collection確認。2026-05-01にcollector URL origin正規化とWorker days上限(365日)を実装済み。
+【手動・デプロイ/secret残】今回の id-based collector endpoint 変更を反映するため、①`cd /Users/kiyo/Documents/GitHub/repo-radar/worker && WRANGLER_LOG_PATH=/Users/kiyo/Documents/GitHub/repo-radar/.wrangler/logs wrangler deploy` ②`cd /Users/kiyo/Documents/GitHub/repo-radar && npm run collector:bootstrap` で Worker secrets (`GITHUB_TOKEN` / `API_SECRET`) と Vercel env (`NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` / `COLLECTOR_API_SECRET=<同じ値>`) を設定 ③`npm run collector:check:trigger` または画面の `Sync collector` で初回collection確認。2026-05-01に sparkline/referrer の repo rename 耐性を実装済み。
 ```
 
 ## 3) 注意

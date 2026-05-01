@@ -154,15 +154,17 @@ async function fetchBatchMap<T>(
 
 async function fetchBatchMapByRepoChunks<T>(
   routeBase: string,
-  repos: string[],
+  repos: Array<{ id: string; name: string }>,
   fallback: Record<string, T[]>,
 ): Promise<Record<string, T[]>> {
   if (repos.length === 0) {
     return fallback;
   }
 
-  const uniqueRepos = Array.from(new Set(repos));
-  const chunks: string[][] = [];
+  const uniqueRepos = Array.from(
+    new Map(repos.map((repo) => [repo.id, repo])).values(),
+  );
+  const chunks: Array<Array<{ id: string; name: string }>> = [];
 
   for (let index = 0; index < uniqueRepos.length; index += COLLECTOR_BATCH_CHUNK_SIZE) {
     chunks.push(uniqueRepos.slice(index, index + COLLECTOR_BATCH_CHUNK_SIZE));
@@ -170,8 +172,12 @@ async function fetchBatchMapByRepoChunks<T>(
 
   const chunkResults = await Promise.all(
     chunks.map((chunkRepos) => {
-      const query = chunkRepos.map(encodeURIComponent).join(",");
-      return fetchBatchMap<T>(`${routeBase}?repos=${query}`, fallback);
+      const repoIdsQuery = chunkRepos.map((repo) => encodeURIComponent(repo.id)).join(",");
+      const repoNamesQuery = chunkRepos.map((repo) => encodeURIComponent(repo.name)).join(",");
+      return fetchBatchMap<T>(
+        `${routeBase}?repoIds=${repoIdsQuery}&repos=${repoNamesQuery}`,
+        fallback,
+      );
     }),
   );
 
@@ -260,13 +266,16 @@ export function RepoRadar({
     sparklines: EMPTY_SPARKLINES,
     referrers: EMPTY_REFERRERS,
   });
-  const collectorRepoNames = useMemo(
-    () => repos.filter((repo) => repo.collectorBacked).map((repo) => repo.name),
+  const collectorRepos = useMemo(
+    () =>
+      repos
+        .filter((repo) => repo.collectorBacked)
+        .map((repo) => ({ id: String(repo.id), name: repo.name })),
     [repos],
   );
 
   useEffect(() => {
-    if (collectorRepoNames.length === 0) {
+    if (collectorRepos.length === 0) {
       return;
     }
     let cancelled = false;
@@ -274,12 +283,12 @@ export function RepoRadar({
     Promise.all([
       fetchBatchMapByRepoChunks<TrafficDay>(
         "/api/traffic-batch",
-        collectorRepoNames,
+        collectorRepos,
         EMPTY_SPARKLINES,
       ),
       fetchBatchMapByRepoChunks<ReferrerSummary>(
         "/api/referrers-batch",
-        collectorRepoNames,
+        collectorRepos,
         EMPTY_REFERRERS,
       ),
     ])
@@ -297,10 +306,10 @@ export function RepoRadar({
     return () => {
       cancelled = true;
     };
-  }, [collectorRepoNames]);
+  }, [collectorRepos]);
 
-  const sparklines = collectorRepoNames.length > 0 ? collectorData.sparklines : EMPTY_SPARKLINES;
-  const referrers = collectorRepoNames.length > 0 ? collectorData.referrers : EMPTY_REFERRERS;
+  const sparklines = collectorRepos.length > 0 ? collectorData.sparklines : EMPTY_SPARKLINES;
+  const referrers = collectorRepos.length > 0 ? collectorData.referrers : EMPTY_REFERRERS;
 
   const sortedRepos = useMemo(() => {
     return [...repos].sort((left, right) => {
@@ -376,8 +385,8 @@ export function RepoRadar({
             repo={repo}
             copy={copy}
             locale={locale}
-            sparklineDays={repo.collectorBacked ? (sparklines?.[repo.name] ?? null) : undefined}
-            referrers={repo.collectorBacked ? (referrers?.[repo.name] ?? null) : undefined}
+            sparklineDays={repo.collectorBacked ? (sparklines?.[String(repo.id)] ?? null) : undefined}
+            referrers={repo.collectorBacked ? (referrers?.[String(repo.id)] ?? null) : undefined}
           />
         ))}
       </section>
