@@ -21,6 +21,9 @@ export interface Env {
 const GH_BASE = "https://api.github.com";
 const GITHUB_REPOS_PAGE_SIZE = 100;
 const GITHUB_REPOS_MAX_PAGES = 20;
+const DEFAULT_TRAFFIC_WINDOW_DAYS = 90;
+const DEFAULT_REFERRER_WINDOW_DAYS = 30;
+const MAX_QUERY_WINDOW_DAYS = 365;
 
 function ghHeaders(token: string) {
   return {
@@ -410,9 +413,14 @@ async function getLastCollectionState(env: Env): Promise<LastCollectionState> {
   }
 }
 
-function parsePositiveDays(value: string | null, fallback: number) {
+function parseDaysParam(value: string | null, fallback: number) {
   const parsed = parseInt(value ?? String(fallback), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.min(parsed, MAX_QUERY_WINDOW_DAYS);
 }
 
 function json(data: unknown, status = 200) {
@@ -498,21 +506,21 @@ const worker = {
 
     // GET /api/repos
     if (path === "/api/repos") {
-      const days = parsePositiveDays(url.searchParams.get("days"), 90);
+      const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_TRAFFIC_WINDOW_DAYS);
       return handleApiRepos(env, days);
     }
 
     // GET /api/repos/:name/traffic
     const trafficMatch = path.match(/^\/api\/repos\/([^/]+)\/traffic$/);
     if (trafficMatch) {
-      const days = parsePositiveDays(url.searchParams.get("days"), 90);
+      const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_TRAFFIC_WINDOW_DAYS);
       return handleApiTraffic(env, decodeRepoName(trafficMatch[1]), days);
     }
 
     // GET /api/repos/:name/referrers
     const referrersMatch = path.match(/^\/api\/repos\/([^/]+)\/referrers$/);
     if (referrersMatch) {
-      const days = parsePositiveDays(url.searchParams.get("days"), 30);
+      const days = parseDaysParam(url.searchParams.get("days"), DEFAULT_REFERRER_WINDOW_DAYS);
       return handleApiReferrers(env, decodeRepoName(referrersMatch[1]), days);
     }
 

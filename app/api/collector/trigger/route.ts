@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { readConfiguredEnvValue } from "@/lib/env";
+import { readConfiguredEnvValue, readConfiguredUrlBase } from "@/lib/env";
 
 const TRIGGER_SESSION_COOKIE = "collector-trigger-session";
 
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     return authError;
   }
 
-  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL).replace(/\/$/, "");
+  const baseUrl = readConfiguredUrlBase(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   const apiSecret = readConfiguredEnvValue(process.env.COLLECTOR_API_SECRET);
 
   if (!baseUrl || !apiSecret) {

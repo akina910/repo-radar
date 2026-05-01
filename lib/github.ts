@@ -8,7 +8,11 @@ import type {
   CollectorStatus,
   CollectorStatusPayload,
 } from "@/lib/collector-types";
-import { hasConfiguredEnvValue, readConfiguredEnvValue } from "@/lib/env";
+import {
+  hasConfiguredEnvValue,
+  readConfiguredEnvValue,
+  readConfiguredUrlBase,
+} from "@/lib/env";
 
 type GitHubRepo = {
   id: number;
@@ -150,7 +154,7 @@ async function fetchTraffic(owner: string, repo: string, kind: "views" | "clones
  * Returns null if NEXT_PUBLIC_COLLECTOR_URL is not set or the request fails.
  */
 async function fetchFromCollector(): Promise<CollectorRepo[] | null> {
-  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
+  const baseUrl = readConfiguredUrlBase(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   if (!baseUrl) return null;
 
   try {
@@ -236,7 +240,7 @@ function readCollectorStatus(data: unknown): Omit<CollectorStatus, "configured" 
 }
 
 export const getCollectorStatus = cache(async (): Promise<CollectorStatus> => {
-  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
+  const baseUrl = readConfiguredUrlBase(process.env.NEXT_PUBLIC_COLLECTOR_URL);
   const collectorApiSecret = process.env.COLLECTOR_API_SECRET;
 
   if (!baseUrl) {

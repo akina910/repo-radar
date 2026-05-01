@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 
 import { isTrafficDay } from "@/lib/collector-batch";
 import type { TrafficDay } from "@/lib/collector-types";
-import { readConfiguredEnvValue } from "@/lib/env";
+import { readConfiguredUrlBase } from "@/lib/env";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ repo: string }> },
 ) {
   const { repo } = await params;
-  const baseUrl = readConfiguredEnvValue(process.env.NEXT_PUBLIC_COLLECTOR_URL);
+  const baseUrl = readConfiguredUrlBase(process.env.NEXT_PUBLIC_COLLECTOR_URL);
 
   if (!baseUrl) {
     return NextResponse.json([] as TrafficDay[]);
