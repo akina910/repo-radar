@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const cwd = process.cwd();
 const envFilePath = path.join(cwd, ".env.local");
@@ -441,4 +442,17 @@ async function main() {
   }
 }
 
-main();
+export {
+  hasRealValue,
+  millisecondsSinceCollectorDate,
+  parseEnvFile,
+  readCollectorFreshness,
+  readUrlIssue,
+};
+
+if (
+  process.argv[1] &&
+  fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))
+) {
+  main();
+}

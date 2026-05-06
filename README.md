@@ -34,6 +34,16 @@ npm install
 npm run dev
 ```
 
+## Verification
+Run the local checks before deploying changes:
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
+
 ## Environment
 ```bash
 GITHUB_USERNAME=your-github-username
