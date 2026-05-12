@@ -87,6 +87,7 @@ Fully non-interactive secret upload is also supported by exporting values first:
 
 ```bash
 COLLECTOR_GITHUB_TOKEN=ghp_xxx \
+COLLECTOR_WORKER_URL=https://repo-radar-collector.<workers-dev-subdomain>.workers.dev \
 COLLECTOR_API_SECRET="$(openssl rand -hex 32)" \
 COLLECTOR_TRIGGER_TOKEN="$(openssl rand -hex 32)" \
 bash scripts/setup-collector-secrets.sh
@@ -119,7 +120,15 @@ This uploads `GITHUB_TOKEN` / `API_SECRET` to the Worker and also updates local 
 
 To update a different env file, pass `--env-file <path>`.
 
-2. Push collector env values to Vercel from `.env.local`:
+2. Verify the deployed Cloudflare resources and Worker secrets:
+
+```bash
+npm run collector:check:cloudflare
+```
+
+This checks Wrangler auth, the configured Worker deployment, D1 database, KV namespace, and the required `GITHUB_TOKEN` / `API_SECRET` Worker secrets. It does not print secret values.
+
+3. Push collector env values to Vercel from `.env.local`:
 
 ```bash
 npm run collector:push:vercel-env
@@ -131,19 +140,20 @@ For a custom env file, pass it through to the script:
 npm run collector:push:vercel-env -- .env.production.local
 ```
 
-2.5. Verify Vercel env wiring before redeploy:
+4. Verify Vercel env wiring before redeploy:
 
 ```bash
 npm run collector:check:vercel-env
 ```
 
-3. Redeploy the Vercel app.
-4. Open the app and use the `Sync collector` button once to force the first collection.
-5. Verify collector health:
+5. Redeploy the Vercel app.
+6. Open the app and use the `Sync collector` button once to force the first collection.
+7. Verify collector health:
 
 ```bash
 npm run collector:check
 npm run collector:check:offline
+npm run collector:check:cloudflare
 npm run collector:check:trigger
 ```
 

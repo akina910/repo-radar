@@ -52,7 +52,7 @@ if [[ "$ENV_FILE" != /* ]]; then
   ENV_FILE="$PWD/$ENV_FILE"
 fi
 
-export WRANGLER_LOG_PATH="${WRANGLER_LOG_PATH:-$ROOT_DIR/.wrangler/logs}"
+export WRANGLER_LOG_PATH="${WRANGLER_LOG_PATH:-${TMPDIR:-/tmp}/repo-radar-wrangler-logs}"
 mkdir -p "$WRANGLER_LOG_PATH"
 
 if ! command -v wrangler >/dev/null 2>&1; then
@@ -271,6 +271,6 @@ if [[ -n "$worker_github_username" && "$worker_github_username" != "your-github-
 fi
 echo
 echo "Recommended next checks:"
-echo "1. Add the three env vars above to Vercel and redeploy."
-echo "2. Local .env.local is already updated. Run:"
-echo "   npm run collector:check:trigger"
+echo "1. Run: npm run collector:check:cloudflare"
+echo "2. Run: npm run collector:push:vercel-env && npm run collector:check:vercel-env"
+echo "3. Redeploy Vercel, then run: npm run collector:check:trigger"
