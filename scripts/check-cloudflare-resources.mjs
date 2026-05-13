@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const rootDir = process.cwd();
 const workerDir = path.join(rootDir, "worker");
@@ -233,4 +234,18 @@ function main() {
   console.log("cloudflare_resources: ok");
 }
 
-main();
+export {
+  hasSecret,
+  listItems,
+  objectId,
+  objectName,
+  parseJsonFromOutput,
+  stripAnsi,
+};
+
+if (
+  process.argv[1] &&
+  fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))
+) {
+  main();
+}
