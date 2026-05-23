@@ -134,6 +134,7 @@ const COPY: Record<Locale, CopySet> = {
 const EMPTY_SPARKLINES: Record<string, TrafficDay[]> = {};
 const EMPTY_REFERRERS: Record<string, ReferrerSummary[]> = {};
 const COLLECTOR_BATCH_CHUNK_SIZE = 40;
+const COLLECTOR_BATCH_CHUNK_CONCURRENCY = 3;
 
 async function fetchBatchMap<T>(
   input: string,
@@ -170,20 +171,24 @@ async function fetchBatchMapByRepoChunks<T>(
     chunks.push(uniqueRepos.slice(index, index + COLLECTOR_BATCH_CHUNK_SIZE));
   }
 
-  const chunkResults = await Promise.all(
-    chunks.map((chunkRepos) => {
-      const repoIdsQuery = chunkRepos.map((repo) => encodeURIComponent(repo.id)).join(",");
-      const repoNamesQuery = chunkRepos.map((repo) => encodeURIComponent(repo.name)).join(",");
-      return fetchBatchMap<T>(
-        `${routeBase}?repoIds=${repoIdsQuery}&repos=${repoNamesQuery}`,
-        fallback,
-      );
-    }),
-  );
-
   const merged: Record<string, T[]> = {};
-  for (const result of chunkResults) {
-    Object.assign(merged, result);
+
+  for (let index = 0; index < chunks.length; index += COLLECTOR_BATCH_CHUNK_CONCURRENCY) {
+    const chunkGroup = chunks.slice(index, index + COLLECTOR_BATCH_CHUNK_CONCURRENCY);
+    const chunkResults = await Promise.all(
+      chunkGroup.map((chunkRepos) => {
+        const repoIdsQuery = chunkRepos.map((repo) => encodeURIComponent(repo.id)).join(",");
+        const repoNamesQuery = chunkRepos.map((repo) => encodeURIComponent(repo.name)).join(",");
+        return fetchBatchMap<T>(
+          `${routeBase}?repoIds=${repoIdsQuery}&repos=${repoNamesQuery}`,
+          fallback,
+        );
+      }),
+    );
+
+    for (const result of chunkResults) {
+      Object.assign(merged, result);
+    }
   }
 
   return merged;
