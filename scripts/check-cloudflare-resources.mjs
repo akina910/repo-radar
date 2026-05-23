@@ -124,10 +124,33 @@ function hasSecret(secrets, name) {
   return secrets.some((secret) => objectName(secret) === name);
 }
 
+function readCommandMessage(result) {
+  return stripAnsi(`${result.stderr || result.stdout}`).trim();
+}
+
+function isCloudflareApiUnavailable(result) {
+  const message = readCommandMessage(result).toLowerCase();
+  const cloudflareApiMentioned =
+    message.includes("api.cloudflare.com") || message.includes("dash.cloudflare.com");
+
+  const networkFailureMentioned = [
+    "unable to resolve cloudflare's api hostname",
+    "getaddrinfo",
+    "enotfound",
+    "eai_again",
+    "etimedout",
+    "fetch failed",
+    "failed to fetch",
+    "network connectivity",
+    "no internet connection",
+  ].some((needle) => message.includes(needle));
+
+  return networkFailureMentioned || (cloudflareApiMentioned && message.includes("dns"));
+}
+
 function printCommandFailure(label, result) {
   console.log(`${label}: unverified`);
-  const message = stripAnsi(`${result.stderr || result.stdout}`)
-    .trim()
+  const message = readCommandMessage(result)
     .split(/\r?\n/)
     .slice(0, 8)
     .join("\n");
@@ -159,10 +182,12 @@ function main() {
   }
 
   let ok = true;
+  let cloudflareApiUnavailable = false;
 
   const whoami = runWrangler(["whoami"]);
   if (!whoami.ok) {
     ok = false;
+    cloudflareApiUnavailable ||= isCloudflareApiUnavailable(whoami);
     printCommandFailure("account", whoami);
   } else {
     console.log("account: ok");
@@ -177,6 +202,7 @@ function main() {
   ]);
   if (!deployments.ok) {
     ok = false;
+    cloudflareApiUnavailable ||= isCloudflareApiUnavailable(deployments);
     printCommandFailure("worker_deployments", deployments);
   } else {
     const deploymentCount = listItems(deployments.json).length;
@@ -187,6 +213,7 @@ function main() {
   const d1 = runWrangler(["d1", "list", "--json"]);
   if (!d1.ok) {
     ok = false;
+    cloudflareApiUnavailable ||= isCloudflareApiUnavailable(d1);
     printCommandFailure("d1_database", d1);
   } else {
     const databases = listItems(d1.json);
@@ -202,6 +229,7 @@ function main() {
   const kv = runWrangler(["kv", "namespace", "list"]);
   if (!kv.ok) {
     ok = false;
+    cloudflareApiUnavailable ||= isCloudflareApiUnavailable(kv);
     printCommandFailure("kv_namespace", kv);
   } else {
     const namespaces = listItems(kv.json);
@@ -213,6 +241,7 @@ function main() {
   const secrets = runWrangler(["secret", "list", "--name", config.workerName, "--format", "json"]);
   if (!secrets.ok) {
     ok = false;
+    cloudflareApiUnavailable ||= isCloudflareApiUnavailable(secrets);
     printCommandFailure("worker_secrets", secrets);
   } else {
     const secretItems = listItems(secrets.json);
@@ -226,8 +255,15 @@ function main() {
 
   if (!ok) {
     console.log("next_actions:");
-    console.log("  - Run: npm run collector:bootstrap");
-    console.log("  - Then rerun: npm run collector:check:cloudflare");
+    if (cloudflareApiUnavailable) {
+      console.log(
+        "  - Cloudflare API could not be reached from this environment; rerun with network/DNS access or verify via Cloudflare MCP.",
+      );
+      console.log("  - Then rerun: npm run collector:check:cloudflare");
+    } else {
+      console.log("  - Run: npm run collector:bootstrap");
+      console.log("  - Then rerun: npm run collector:check:cloudflare");
+    }
     process.exit(1);
   }
 
@@ -236,10 +272,12 @@ function main() {
 
 export {
   hasSecret,
+  isCloudflareApiUnavailable,
   listItems,
   objectId,
   objectName,
   parseJsonFromOutput,
+  readCommandMessage,
   stripAnsi,
 };
 

@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   hasSecret,
+  isCloudflareApiUnavailable,
   listItems,
   objectId,
   objectName,
   parseJsonFromOutput,
+  readCommandMessage,
   stripAnsi,
 } from "./check-cloudflare-resources.mjs";
 
@@ -49,4 +51,45 @@ test("hasSecret matches only secret names", () => {
 
 test("stripAnsi removes color codes from Wrangler errors", () => {
   assert.equal(stripAnsi("\u001b[31merror\u001b[0m"), "error");
+});
+
+test("readCommandMessage prefers stderr and strips terminal color codes", () => {
+  assert.equal(
+    readCommandMessage({
+      stdout: "ok",
+      stderr: "\u001b[31mUnable to resolve Cloudflare's API hostname\u001b[0m\n",
+    }),
+    "Unable to resolve Cloudflare's API hostname",
+  );
+});
+
+test("isCloudflareApiUnavailable detects DNS and network failures", () => {
+  assert.equal(
+    isCloudflareApiUnavailable({
+      stdout: "",
+      stderr: "Unable to resolve Cloudflare's API hostname (api.cloudflare.com or dash.cloudflare.com).",
+    }),
+    true,
+  );
+  assert.equal(
+    isCloudflareApiUnavailable({
+      stdout: "",
+      stderr: "getaddrinfo ENOTFOUND api.cloudflare.com",
+    }),
+    true,
+  );
+  assert.equal(
+    isCloudflareApiUnavailable({
+      stdout: "",
+      stderr: "Authentication error: please run wrangler login",
+    }),
+    false,
+  );
+  assert.equal(
+    isCloudflareApiUnavailable({
+      stdout: "",
+      stderr: "HTTP 403 from https://api.cloudflare.com/client/v4/accounts",
+    }),
+    false,
+  );
 });
