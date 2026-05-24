@@ -2,7 +2,51 @@
 
 このファイルは、`/Users/kiyo/Documents/GitHub/bussines_idea` が現在の writable root 外で直接編集できないための反映用メモ。
 
-## 0) 最新反映案（2026-05-23）
+## 0) 最新反映案（2026-05-25）
+
+### handoff 追記案
+
+追記先:
+- `handoff/BI-007-github-public-repo-radar-handoff.md` の末尾
+
+追記内容:
+
+~~~md
+## 22. 実装済み改善（2026-05-25）
+
+手動 secret / env 設定後の最後の確認で、collector が degraded でも `npm run collector:check` が終了コード 0 になり得ることを発見した。これは「初回公開できた」と誤判定するリスクが高いため、公開前ゲートとして失敗を明確に返すよう修正した。
+
+### 変更内容
+- `scripts/check-collector.mjs`: `/api/status` の `status !== "ok"`、KV/D1 エラー、runtime binding/secret missing、2日超の stale history を `blocking_issues` として出力し、終了コード 1 にするよう変更。
+- `scripts/check-collector.mjs`: `status: "ok"` でも `db_stats` / `runtime_config` / `kv_error` が欠ける malformed payload は失敗に寄せるよう強化。
+- `scripts/check-collector.test.mjs`: healthy / degraded / malformed ok payload / stale history の判定テストを追加。
+- `README.md`: `collector:check` が degraded / missing binding / stale history で non-zero exit することを明記。
+
+### 検証
+- `npm test`: pass（20 tests）
+- `npm run typecheck`: pass
+- `npm run lint`: pass
+- `npm run build`: pass
+- `git diff --check`: pass
+- `npm run collector:check:offline`: expected fail（ローカル `.env.local` 未設定。Worker名 / GITHUB_USERNAME / D1 / KV / cron は ok）
+- `npm run collector:check:cloudflare`: expected fail（Cloudflare API DNS 解決不可）。このセッションでは Cloudflare MCP tool も露出せず、実リソース確認は未完了。
+
+### Reviewer gate
+- Codex: 実行主体で差分自己レビュー済み。初回実装後に malformed ok payload の見逃しを発見し、missing `db_stats` / runtime keys / `kv_error` も blocking にするよう修正済み。
+- Copilot: CLI は存在するが認証情報なしで review 実行不可。`No authentication information found.`。`copilot login`、`COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN`、または `gh auth login` が必要。
+- Claude: `claude` CLI が存在せず実行不可。
+
+### 次アクション
+【手動・残り】①Copilot gate 復旧（`copilot login` または `GH_TOKEN` 等設定）→今回差分の read-only review を実行 ②Cloudflare API に到達できる環境または Cloudflare MCP で `npm run collector:check:cloudflare` を再実行 ③`npm run collector:bootstrap` で Worker secrets / Vercel env を設定し、redeploy 後に `npm run collector:check:trigger` を実行。今回の変更により degraded / stale は終了コード 1 で止まる。
+~~~
+
+### `project-index.md` の BI-007「次アクション」差し替え案
+
+```md
+【手動・残り】①Copilot gate 復旧: `copilot login` または `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN` を設定して今回差分の read-only review を実行（現状は認証なしで不可） ②Cloudflare API に到達できる環境または Cloudflare MCP で `npm run collector:check:cloudflare` を再実行 ③`npm run collector:bootstrap` で Worker secrets (`GITHUB_TOKEN` / `API_SECRET`) と Vercel env (`NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` / `COLLECTOR_API_SECRET=<同じ値>`) を設定し redeploy ④`npm run collector:check:trigger` で初回 collection を確認。2026-05-25 に `collector:check` が degraded / missing binding / stale history を終了コード 1 で検出するよう強化済み。
+```
+
+## 1) 前回反映案（2026-05-23）
 
 ### handoff 追記案
 

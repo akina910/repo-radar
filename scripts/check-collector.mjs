@@ -329,6 +329,62 @@ function printActionableHints({
   }
 }
 
+function readBlockingStatusIssues(status) {
+  const issues = [];
+
+  if (!status || typeof status !== "object") {
+    issues.push("collector status payload is invalid");
+    return issues;
+  }
+
+  if (status.status !== "ok") {
+    issues.push(`collector status is ${status.status ?? "missing"}`);
+  }
+
+  if (status.kv_error === true) {
+    issues.push("collector KV read failed");
+  } else if (status.kv_error !== false) {
+    issues.push("collector KV status is missing");
+  }
+
+  if (status.db_stats?.ready !== true || status.db_stats?.db_error === true) {
+    issues.push("collector D1 read failed");
+  }
+
+  const runtime = status.runtime_config ?? {};
+  const expectedRuntimeKeys = [
+    "github_username_configured",
+    "github_token_configured",
+    "api_secret_configured",
+    "d1_binding_configured",
+    "kv_binding_configured",
+  ];
+
+  for (const key of expectedRuntimeKeys) {
+    if (runtime[key] !== true) {
+      issues.push(`runtime_config.${key} is missing`);
+    }
+  }
+
+  const freshness = readCollectorFreshness(status);
+  if (freshness.stale) {
+    issues.push(`collector data is stale (${freshness.ageDays} days old)`);
+  }
+
+  return [...new Set(issues)];
+}
+
+function printBlockingStatusIssues(issues) {
+  if (issues.length === 0) {
+    return;
+  }
+
+  console.log("blocking_issues:");
+  for (const issue of issues) {
+    console.log(`  - ${issue}`);
+  }
+}
+
 async function main() {
   const args = new Set(process.argv.slice(2));
   const shouldTrigger = args.has("--trigger");
@@ -428,6 +484,12 @@ async function main() {
       githubUsername,
       wrangler,
     });
+
+    const blockingIssues = readBlockingStatusIssues(status);
+    printBlockingStatusIssues(blockingIssues);
+    if (blockingIssues.length > 0) {
+      process.exit(1);
+    }
   } catch (error) {
     console.error("/api/status request failed:", error instanceof Error ? error.message : error);
     console.log("fallback: local-only preflight summary");
@@ -446,6 +508,7 @@ export {
   hasRealValue,
   millisecondsSinceCollectorDate,
   parseEnvFile,
+  readBlockingStatusIssues,
   readCollectorFreshness,
   readUrlIssue,
 };
