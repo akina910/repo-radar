@@ -35,7 +35,7 @@ export type RadarRepo = {
   collectorBacked: boolean;
 };
 
-type SortKey = "views" | "stars" | "updated" | "clones" | "neglected";
+type SortKey = "views" | "stars" | "updated" | "clones" | "referrers" | "neglected";
 type Locale = "en" | "ja";
 
 type CopySet = {
@@ -49,6 +49,7 @@ type CopySet = {
   stars: string;
   updated: string;
   neglected: string;
+  referrers: string;
   forks: string;
   updatedLabel: string;
   openIssues: string;
@@ -80,6 +81,7 @@ const COPY: Record<Locale, CopySet> = {
     stars: "Stars",
     updated: "Updated",
     neglected: "Neglected",
+    referrers: "Referrers",
     forks: "Forks",
     updatedLabel: "Updated",
     openIssues: "open issues",
@@ -110,6 +112,7 @@ const COPY: Record<Locale, CopySet> = {
     stars: "Stars",
     updated: "更新順",
     neglected: "放置気味",
+    referrers: "流入元",
     forks: "Forks",
     updatedLabel: "更新",
     openIssues: "未解決の問題",
@@ -135,6 +138,10 @@ const EMPTY_SPARKLINES: Record<string, TrafficDay[]> = {};
 const EMPTY_REFERRERS: Record<string, ReferrerSummary[]> = {};
 const COLLECTOR_BATCH_CHUNK_SIZE = 40;
 const COLLECTOR_BATCH_CHUNK_CONCURRENCY = 3;
+
+function sumReferrerCounts(referrers: ReferrerSummary[] | null | undefined) {
+  return referrers?.reduce((sum, referrer) => sum + referrer.total_count, 0) ?? 0;
+}
 
 async function fetchBatchMap<T>(
   input: string,
@@ -323,6 +330,16 @@ export function RepoRadar({
           return right.stargazersCount - left.stargazersCount;
         case "clones":
           return (right.clonesCount ?? 0) - (left.clonesCount ?? 0);
+        case "referrers": {
+          const leftReferrerCount = sumReferrerCounts(referrers[String(left.id)]);
+          const rightReferrerCount = sumReferrerCounts(referrers[String(right.id)]);
+
+          if (rightReferrerCount !== leftReferrerCount) {
+            return rightReferrerCount - leftReferrerCount;
+          }
+
+          return (right.viewsCount ?? 0) - (left.viewsCount ?? 0);
+        }
         case "updated":
           return new Date(right.pushedAt).getTime() - new Date(left.pushedAt).getTime();
         case "neglected": {
@@ -335,7 +352,7 @@ export function RepoRadar({
           return (right.viewsCount ?? 0) - (left.viewsCount ?? 0);
       }
     });
-  }, [repos, sortBy]);
+  }, [referrers, repos, sortBy]);
 
   const totalStars = repos.reduce((sum, repo) => sum + repo.stargazersCount, 0);
   const trafficReadyCount = repos.filter((repo) => repo.trafficAvailable).length;
@@ -372,6 +389,7 @@ export function RepoRadar({
                 <option value="stars">{copy.stars}</option>
                 <option value="updated">{copy.updated}</option>
                 <option value="clones">{copy.clones}</option>
+                <option value="referrers">{copy.referrers}</option>
                 <option value="neglected">{copy.neglected}</option>
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">

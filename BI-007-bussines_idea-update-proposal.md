@@ -2,7 +2,51 @@
 
 このファイルは、`/Users/kiyo/Documents/GitHub/bussines_idea` が現在の writable root 外で直接編集できないための反映用メモ。
 
-## 0) 最新反映案（2026-05-25）
+## 0) 最新反映案（2026-06-05）
+
+### handoff 追記案
+
+追記先:
+- `handoff/BI-007-github-public-repo-radar-handoff.md` の末尾
+
+追記内容:
+
+~~~md
+## 23. Referrers ソート追加（2026-06-05）
+
+自律分析で、Worker/D1/KV/Next.js 統合は実装済みで、残りは本番 secrets / Vercel env の手動設定が主ブロッカーと判断した。手動待ちで止めず、既に収集・表示されている referrers を「次に触る repo」判断へ使えるよう UI を改善した。
+
+### 実装内容
+- `components/repo-radar.tsx` に `referrers` ソートキーを追加。
+- `Referrers` / `流入元` を sort select に追加。
+- sort は collector-backed repo の referrer `total_count` 合計降順、同点時は views 降順。
+- 非同期 referrers 読み込み後に並び替えが更新されるよう `useMemo` 依存に `referrers` を追加。
+
+### 検証
+- `npm test` PASS（20 tests）
+- `npm run typecheck` PASS
+- `npm run lint` PASS
+- `npm run build` PASS
+- `npm run collector:check:offline` は `.env.local` 未設定のため失敗（想定）。出力上、`worker/wrangler.toml` の Worker 名 / GITHUB_USERNAME / D1 database_id / KV namespace id / cron trigger は ok。
+- ローカルブラウザ確認は sandbox の bind 制限で `next dev` が `listen EPERM` になり未実施。
+
+### MCP / reviewer 状況
+- Cloudflare MCP はこのセッションで tool search しても callable tool として出ず、Workers/D1/KV の実体確認は未実施。代替として既存 `wrangler.toml` と `collector:check:offline` を確認。
+- Codex 自己レビュー: 変更は referrer 集計ソートのみで、API 契約・Worker 契約の変更なし。`collectorBacked` gate を維持しているため別アカウント閲覧時の collector data 漏れは増えていない。
+- Copilot review: `copilot` CLI は存在するが GitHub 認証情報なしで失敗（`No authentication information found`、`gh auth status` も token invalid）。必須ゲートは未完了。
+- Claude review: `claude` CLI が見つからず未実施。
+
+### 次アクション
+【手動・残り】①Copilot gate 復旧（`copilot` の `/login`、または `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN` 設定）→今回差分の read-only review を実行 ②Cloudflare API に到達できる環境または Cloudflare MCP で `npm run collector:check:cloudflare` を再実行 ③`npm run collector:bootstrap` で Worker secrets / Vercel env を設定し、redeploy 後に `npm run collector:check:trigger` を実行。
+~~~
+
+### `project-index.md` の BI-007「次アクション」差し替え案
+
+```md
+【手動・残り】①Copilot gate 復旧: `copilot` の `/login` または `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN` を設定して今回差分の read-only review を実行（現状は認証なしで不可） ②Cloudflare API に到達できる環境または Cloudflare MCP で `npm run collector:check:cloudflare` を再実行 ③`npm run collector:bootstrap` で Worker secrets (`GITHUB_TOKEN` / `API_SECRET`) と Vercel env (`NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` / `COLLECTOR_API_SECRET=<同じ値>`) を設定し redeploy ④`npm run collector:check:trigger` で初回 collection を確認。2026-06-05 に referrers 件数ソートを追加済み。
+```
+
+## 1) 前回反映案（2026-05-25）
 
 ### handoff 追記案
 
