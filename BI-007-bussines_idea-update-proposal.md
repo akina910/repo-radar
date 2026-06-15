@@ -2,7 +2,54 @@
 
 このファイルは、`/Users/kiyo/Documents/GitHub/bussines_idea` が現在の writable root 外で直接編集できないための反映用メモ。
 
-## 0) 最新反映案（2026-06-05）
+## 0) 最新反映案（2026-06-15）
+
+### handoff 追記案
+
+追記先:
+- `handoff/BI-007-github-public-repo-radar-handoff.md` の末尾
+
+追記内容:
+
+~~~md
+## 24. Collector batch テスト強化（2026-06-15）
+
+今回の判断: 手動 secret/env 設定はまだ残っているが、実装 repo には Worker/D1/KV/Next.js 統合と referrers UI まで入っていた。今いちばん価値があるのは、新しい traffic/referrers batch API の共有ロジックを壊れにくくすることだと判断した。
+
+### 【自動化済み】実装内容
+- `scripts/collector-batch.test.mjs` を追加。
+- `parseCollectorReposParam` / `parseCollectorRepoIdsParam` の重複排除、不正値除外、最大60件制限をテスト。
+- `isTrafficDay` / `isReferrerSummary` の型ガードをテスト。
+- `fetchCollectorBatchMap` が trailing slash 付き base URL を正規化し、非200・非配列・不正行を安全に `[]` へ落とすことをテスト。
+
+### 検証結果
+- `npm test`: pass（24 tests）
+- `npm run typecheck`: pass
+- `npm run lint`: pass
+- `npm run build`: pass
+- `npm run collector:check:cloudflare`: wrangler.toml 上の Worker/D1/KV/cron 設定は読めたが、この環境では `api.cloudflare.com` / `dash.cloudflare.com` の DNS 解決に失敗し、remote resources / secrets は未検証。
+
+### レビュー状況
+- Codex CLI: この環境では `codex` コマンド未検出。
+- Copilot CLI: `copilot` コマンドはあるが未認証。`No authentication information found` でレビュー不可。
+- Claude CLI: この環境では `claude` コマンド未検出。
+
+### 【手動】残り
+1. `cd /Users/kiyo/Documents/GitHub/repo-radar/worker`
+2. `wrangler secret put GITHUB_TOKEN`
+3. `wrangler secret put API_SECRET`
+4. Vercel に `NEXT_PUBLIC_COLLECTOR_URL` と `COLLECTOR_API_SECRET` を設定して redeploy
+5. ネットワーク/DNS が通る環境で `npm run collector:check:cloudflare` と `npm run collector:check:trigger` を再実行
+6. Copilot レビュー gate を満たすには `gh auth login` または `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN` を設定してから、差分レビューを再実行する
+~~~
+
+### `project-index.md` の BI-007「次アクション」差し替え案
+
+```md
+【手動・残り】①Copilot gate 復旧: `gh auth login` または `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_TOKEN` を設定して今回差分の read-only review を実行（現状は未認証で不可） ②Cloudflare API に到達できる環境または Cloudflare MCP で `npm run collector:check:cloudflare` を再実行 ③`npm run collector:bootstrap` で Worker secrets (`GITHUB_TOKEN` / `API_SECRET`) と Vercel env (`NEXT_PUBLIC_COLLECTOR_URL=https://repo-radar-collector.kiyo-nomura.workers.dev` / `COLLECTOR_API_SECRET=<同じ値>`) を設定し redeploy ④`npm run collector:check:trigger` で初回 collection を確認。2026-06-15 に collector batch 共有ロジックのテストを追加済み。
+```
+
+## 1) 前回反映案（2026-06-05）
 
 ### handoff 追記案
 
